@@ -17,7 +17,7 @@ export const LoadingButton = ({
     if (variant === 'secondary') {
       return isDisabled ? theme.color.border : theme.color.surface;
     }
-    return isDisabled ? theme.color.muted : theme.color.primary;
+    return isDisabled ? theme.color.textMuted : theme.color.primary;
   };
 
   const getTextColor = () => {

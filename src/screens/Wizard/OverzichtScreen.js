@@ -131,14 +131,14 @@ export default function OverzichtScreen({ navigation }) {
   return (
     <ScreenWrapper>
       <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ ...theme.text.h2, color: theme.color.primary }}>✅ Overzicht</Text>
-        <Text style={{ ...theme.text.small, color: theme.color.muted, marginTop: theme.space.xs }}>
+        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>✅ Overzicht</Text>
+        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
           Controleer en verstuur uw document
         </Text>
       </View>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Documenttype
         </Text>
         <Row left="Type" right={docType} />
@@ -176,11 +176,11 @@ export default function OverzichtScreen({ navigation }) {
       </Card>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Onderdelen ({lines.length})
         </Text>
         {lines.length === 0 ? (
-          <Text style={{ ...theme.text.body, color: theme.color.muted }}>Geen onderdelen.</Text>
+          <Text style={{ fontSize: theme.text.body, color: theme.color.textMuted }}>Geen onderdelen.</Text>
         ) : (
           lines.map((r) => (
             <View
@@ -191,10 +191,10 @@ export default function OverzichtScreen({ navigation }) {
                 paddingVertical: theme.space.md,
               }}
             >
-              <Text style={{ ...theme.text.body, fontWeight: '600', color: theme.color.primary, marginBottom: theme.space.xs }}>
+              <Text style={{ fontSize: theme.text.body, fontWeight: '600', color: theme.color.primary, marginBottom: theme.space.xs }}>
                 {r.omschrijving}
               </Text>
-              <Text style={{ ...theme.text.small, color: theme.color.muted }}>
+              <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted }}>
                 {r.aantal} × {currency(r.eenheidsprijs)} • Excl. {currency(r.ex)} • BTW {r.btwPerc}% ({currency(r.btwA)}) • Incl. {currency(r.inc)}
               </Text>
             </View>
@@ -202,10 +202,10 @@ export default function OverzichtScreen({ navigation }) {
         )}
         {company.voorwaarden ? (
           <View style={{ marginTop: theme.space.md, paddingTop: theme.space.md, borderTopWidth: 1, borderTopColor: theme.color.border }}>
-            <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.sm }}>
+            <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.sm }}>
               📋 Opmerkingen / Voorwaarden
             </Text>
-            <Text style={{ ...theme.text.small, color: theme.color.muted }}>{company.voorwaarden}</Text>
+            <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted }}>{company.voorwaarden}</Text>
           </View>
         ) : null}
       </Card>
@@ -217,7 +217,7 @@ export default function OverzichtScreen({ navigation }) {
       />
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           💰 Totalen
         </Text>
         <Row left="Totaal excl." right={currency(exTotal)} />
@@ -263,14 +263,14 @@ export default function OverzichtScreen({ navigation }) {
               }}
               variant="secondary"
             />
-            <Text style={{ ...theme.text.xsmall, color: theme.color.muted, marginTop: theme.space.sm, textAlign: 'center' }}>
+            <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginTop: theme.space.sm, textAlign: 'center' }}>
               💡 E-facturatie via Peppol netwerk (verplicht vanaf 2026)
             </Text>
           </View>
         )}
 
         {!acceptEnabled ? (
-          <Text style={{ ...theme.text.xsmall, color: theme.color.muted, marginTop: theme.space.md }}>
+          <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginTop: theme.space.md }}>
             💡 Tip: voeg eerst een handtekening toe om te kunnen accepteren.
           </Text>
         ) : null}

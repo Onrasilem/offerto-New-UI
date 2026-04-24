@@ -8,8 +8,8 @@
 // Backend API URL
 // For Android Emulator: use 10.0.2.2 (emulator's special alias for host machine)
 // For iOS Simulator: use localhost
-// For Physical Device: use your local IP (e.g., 192.168.0.198)
-const API_URL = 'http://10.0.2.2:4000';
+// For Physical Device: use your local IP (e.g., 192.168.0.221)
+const API_URL = 'http://192.168.0.221:4000';
 
 // Token storage keys
 const STORAGE_KEYS = {
@@ -237,6 +237,13 @@ class OffertoAPI {
   async getDocument(id) {
     const data = await this.request(`/documents/${id}`);
     return data.document;
+  }
+
+  async updateDocument(id, data) {
+    return this.request(`/documents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   async sendDocument(id) {

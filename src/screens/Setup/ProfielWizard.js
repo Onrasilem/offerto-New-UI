@@ -55,14 +55,14 @@ export default function ProfielWizard({navigation}){
   return (
     <ScreenWrapper>
       <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ ...theme.text.h2, color: theme.color.primary }}>🏢 Bedrijfsprofiel</Text>
-        <Text style={{ ...theme.text.small, color: theme.color.muted, marginTop: theme.space.xs }}>
+        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>🏢 Bedrijfsprofiel</Text>
+        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
           Vul uw bedrijfsgegevens in
         </Text>
       </View>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Basisgegevens
         </Text>
         
@@ -111,7 +111,7 @@ export default function ProfielWizard({navigation}){
       </Card>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Fiscale gegevens
         </Text>
 
@@ -154,7 +154,7 @@ export default function ProfielWizard({navigation}){
       </Card>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Bankgegevens
         </Text>
 
@@ -189,7 +189,7 @@ export default function ProfielWizard({navigation}){
       </Card>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Offerte-instellingen
         </Text>
 
@@ -219,7 +219,7 @@ export default function ProfielWizard({navigation}){
               minHeight: 90,
               textAlignVertical: 'top',
               backgroundColor: theme.color.surface,
-              ...theme.text.body,
+              fontSize: theme.text.body,
               color: theme.color.text
             }}
           />

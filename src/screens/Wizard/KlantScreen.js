@@ -59,8 +59,8 @@ export default function KlantScreen({ navigation }) {
   return (
     <ScreenWrapper headerOffset={headerHeight}>
       <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ ...theme.text.h2, color: theme.color.primary }}>👤 Klantgegevens</Text>
-        <Text style={{ ...theme.text.small, color: theme.color.muted, marginTop: theme.space.xs }}>
+        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>👤 Klantgegevens</Text>
+        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
           Voeg de klantinformatie in
         </Text>
       </View>
@@ -133,7 +133,7 @@ export default function KlantScreen({ navigation }) {
       </Card>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           📨 Peppol E-facturatie (Optioneel)
         </Text>
         
@@ -145,13 +145,13 @@ export default function KlantScreen({ navigation }) {
           />
         </Field>
 
-        <Text style={{ ...theme.text.xsmall, color: theme.color.muted, marginTop: theme.space.sm }}>
+        <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginTop: theme.space.sm }}>
           💡 Het Peppol ID is meestal het BTW-nummer van de klant. Wordt gebruikt voor e-facturatie.
         </Text>
       </Card>
 
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.xsmall, color: theme.color.muted, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginBottom: theme.space.md }}>
           ℹ️ Minstens bedrijfsnaam of contactpersoon, én minstens e-mail of telefoon zijn verplicht.
         </Text>
 

@@ -61,7 +61,7 @@ export default function KlantenScreen({ navigation }) {
         const q = query.toLowerCase();
         return c.name.toLowerCase().includes(q) || c.contact.toLowerCase().includes(q);
       });
-  }, [archive, clients, query]);
+  }, [archive, query]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>

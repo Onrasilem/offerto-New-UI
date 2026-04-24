@@ -42,7 +42,7 @@ export const ValidatedInput = ({
           },
           style,
         ]}
-        placeholderTextColor={theme.color.muted}
+        placeholderTextColor={theme.color.textMuted}
         {...props}
       />
       {hasError && (

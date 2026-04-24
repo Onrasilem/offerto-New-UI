@@ -135,6 +135,35 @@ router.post('/:id/send', authRequired, async (req, res) => {
   }
 });
 
+// Update document (status, fields)
+router.put('/:id', authRequired, async (req, res) => {
+  const { id } = req.params;
+  const { status, number, date, due_date, totals_json } = req.body;
+  try {
+    const docRes = await query('select * from documents where id=$1', [id]);
+    if (docRes.rows.length === 0) return res.status(404).json({ error: 'not found' });
+
+    const fields = [];
+    const values = [];
+    let idx = 1;
+    if (status !== undefined) { fields.push(`status=$${idx++}`); values.push(status); }
+    if (number !== undefined) { fields.push(`number=$${idx++}`); values.push(number); }
+    if (date !== undefined) { fields.push(`date=$${idx++}`); values.push(date); }
+    if (due_date !== undefined) { fields.push(`due_date=$${idx++}`); values.push(due_date); }
+    if (totals_json !== undefined) { fields.push(`totals_json=$${idx++}`); values.push(JSON.stringify(totals_json)); }
+
+    if (fields.length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+    values.push(id);
+    await query(`update documents set ${fields.join(', ')} where id=$${idx}`, values);
+    const updated = await query('select * from documents where id=$1', [id]);
+    res.json({ document: updated.rows[0] });
+  } catch (e) {
+    console.error('Update document error:', e);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
 // Convert quote to invoice
 router.post('/:id/convert', authRequired, async (req, res) => {
   const { id } = req.params;

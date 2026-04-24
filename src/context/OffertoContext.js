@@ -296,8 +296,8 @@ export function OffertoProvider({ children }) {
         type: doc.type === 'FACTUUR' ? 'Invoice' : 'Quote',
         customer_id: customer.id || null, // Will need customer creation first
         status: doc.status === 'Betaald' ? 'Paid' : doc.status === 'Getekend/Goedgekeurd' ? 'Signed' : 'Sent',
-        number: doc.nummer,
-        date: doc.datum,
+        number: doc.number,
+        date: doc.date,
         totals_json: { total: doc.total || doc.totals?.incTotal || 0 },
         lines: (doc.lines || []).map(line => ({
           description: line.omschrijving,
@@ -318,30 +318,22 @@ export function OffertoProvider({ children }) {
     }
   }
 
-  async function refreshArchive(uid){
-    if (supabase && uid) {
-      const { data, error } = await supabase.from('documents').select('id,type,number,date,total_incl,status,share_url,last_reminder_at').order('date', { ascending:false });
-      if (!error && data) setArchive(data.map(d=>({ id:d.id, type:d.type, number:d.number, date:d.date, total:d.total_incl, status:d.status||'Concept', shareUrl:d.share_url, lastReminderAt:d.last_reminder_at })));
-    } else {
-      const a = await AsyncStorage.getItem(STORAGE.archive); if (a) setArchive(JSON.parse(a));
-    }
-  }
 
   async function saveToArchive(doc){
     setIsLoading(true);
     try {
-      const item = { 
-        id: Date.now().toString(), 
-        type: doc.type, 
-        nummer: doc.number, 
-        datum: doc.date, 
-        total: doc.totals?.incTotal ?? 0, 
-        signRequested: !!doc.signRequested, 
-        status: 'Concept', 
+      const item = {
+        id: Date.now().toString(),
+        type: doc.type,
+        number: doc.number,
+        date: doc.date,
+        total: doc.totals?.incTotal ?? 0,
+        signRequested: !!doc.signRequested,
+        status: 'Concept',
         klant: klant,
         lines: doc.totals?.lines || [],
-        shareUrl: undefined, 
-        lastReminderAt: null 
+        shareUrl: undefined,
+        lastReminderAt: null
       };
       
       const next = [item, ...(archive||[])];
@@ -369,13 +361,13 @@ export function OffertoProvider({ children }) {
     if (USE_BACKEND_API && user?.id) {
       try {
         await api.updateDocument(id, { status });
-        // Refresh from backend to get latest
-        const docs = await api.listDocuments();
-        setArchive(docs);
-        await AsyncStorage.setItem(STORAGE.archive, JSON.stringify(docs));
+        const docs = await api.getDocuments();
+        const migrated = migrateArchiveData(docs);
+        setArchive(migrated);
+        await AsyncStorage.setItem(STORAGE.archive, JSON.stringify(migrated));
+        return;
       } catch (e) {
         console.log('Backend update error, falling back to local', e);
-        // Fall through to local update
       }
     }
     
@@ -395,13 +387,11 @@ export function OffertoProvider({ children }) {
         const doc = archive.find(d => d.number === number);
         if (doc) {
           const patch = { status };
-          if (shareUrl) patch.share_url = shareUrl;
-          if (status === 'Verzonden') patch.sent_at = now;
-          
           await api.updateDocument(doc.id, patch);
-          const docs = await api.listDocuments();
-          setArchive(docs);
-          await AsyncStorage.setItem(STORAGE.archive, JSON.stringify(docs));
+          const docs = await api.getDocuments();
+          const migrated = migrateArchiveData(docs);
+          setArchive(migrated);
+          await AsyncStorage.setItem(STORAGE.archive, JSON.stringify(migrated));
           return;
         }
       }

@@ -81,7 +81,7 @@ export const ShareButton = ({ doc, company, customer, pdfBase64, style }) => {
               Share {doc.type} {doc.number}
             </Text>
 
-            <Text style={{ fontSize: 12, color: theme.color.muted, marginBottom: theme.space.sm }}>
+            <Text style={{ fontSize: 12, color: theme.color.textMuted, marginBottom: theme.space.sm }}>
               Recipient email address:
             </Text>
             <TextInput
@@ -99,7 +99,7 @@ export const ShareButton = ({ doc, company, customer, pdfBase64, style }) => {
                 marginBottom: theme.space.md,
                 color: theme.color.primary,
               }}
-              placeholderTextColor={theme.color.muted}
+              placeholderTextColor={theme.color.textMuted}
             />
 
             <View style={{ flexDirection: 'row', gap: theme.space.md }}>
@@ -124,7 +124,7 @@ export const ShareButton = ({ doc, company, customer, pdfBase64, style }) => {
                   flex: 1,
                   paddingVertical: theme.space.md,
                   borderRadius: theme.radius.sm,
-                  backgroundColor: isSharing ? theme.color.muted : theme.color.primary,
+                  backgroundColor: isSharing ? theme.color.textMuted : theme.color.primary,
                   alignItems: 'center',
                   flexDirection: 'row',
                   justifyContent: 'center',

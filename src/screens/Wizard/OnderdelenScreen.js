@@ -123,8 +123,8 @@ export default function OnderdelenScreen({ navigation }) {
   return (
     <ScreenWrapper>
       <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ ...theme.text.h2, color: theme.color.primary }}>📦 Onderdelen</Text>
-        <Text style={{ ...theme.text.small, color: theme.color.muted, marginTop: theme.space.xs }}>
+        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>📦 Onderdelen</Text>
+        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
           Voeg de offerteposts in
         </Text>
       </View>
@@ -167,7 +167,7 @@ export default function OnderdelenScreen({ navigation }) {
 
       {/* Nieuw onderdeel */}
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Nieuw onderdeel
         </Text>
         
@@ -244,11 +244,11 @@ export default function OnderdelenScreen({ navigation }) {
 
       {/* Lijst onderdelen */}
       <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ ...theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
+        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
           Toegevoegde onderdelen ({onderdelen.length})
         </Text>
         {onderdelen.length === 0 ? (
-          <Text style={{ ...theme.text.body, color: theme.color.muted }}>
+          <Text style={{ fontSize: theme.text.body, color: theme.color.textMuted }}>
             Nog geen onderdelen toegevoegd.
           </Text>
         ) : (
@@ -261,10 +261,10 @@ export default function OnderdelenScreen({ navigation }) {
                 paddingVertical: theme.space.md,
               }}
             >
-              <Text style={{ ...theme.text.body, fontWeight: '600', color: theme.color.primary, marginBottom: theme.space.xs }}>
+              <Text style={{ fontSize: theme.text.body, fontWeight: '600', color: theme.color.primary, marginBottom: theme.space.xs }}>
                 {idx + 1}. {item.omschrijving}
               </Text>
-              <Text style={{ ...theme.text.small, color: theme.color.muted, marginBottom: theme.space.md }}>
+              <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginBottom: theme.space.md }}>
                 {item.aantal} {item.eenheid} × €{Number(item.eenheidsprijs).toFixed(2)} • BTW {item.btwPerc}% • Totaal: €{Number(item.ex + item.btwA).toFixed(2)}
               </Text>
               <Button
