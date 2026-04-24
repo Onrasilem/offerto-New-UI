@@ -1,0 +1,2 @@
+# Config quick outline
+- env vars: PORT, DATABASE_URL, REDIS_URL, JWT_SECRET, ACCESS_TTL, REFRESH_TTL_DAYS

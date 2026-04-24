@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head><title>Offerto API Test</title></head>
+<body>
+  <h1>Offerto Backend Test</h1>
+  <button onclick="testHealth()">Test Health</button>
+  <button onclick="testRegister()">Test Register</button>
+  <button onclick="testLogin()">Test Login</button>
+  <pre id="output"></pre>
+
+  <script>
+    const API = 'http://localhost:4000';
+    const log = (msg) => {
+      document.getElementById('output').textContent += JSON.stringify(msg, null, 2) + '\n\n';
+    };
+
+    async function testHealth() {
+      try {
+        const res = await fetch(`${API}/health`);
+        log({ health: await res.json() });
+      } catch (e) {
+        log({ error: e.message });
+      }
+    }
+
+    async function testRegister() {
+      try {
+        const res = await fetch(`${API}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: `test${Date.now()}@offerto.nl`,
+            password: 'test123',
+            name: 'Test User'
+          })
+        });
+        log({ register: await res.json() });
+      } catch (e) {
+        log({ error: e.message });
+      }
+    }
+
+    async function testLogin() {
+      try {
+        const res = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'admin@offerto.nl',
+            password: 'admin123'
+          })
+        });
+        log({ login: await res.json() });
+      } catch (e) {
+        log({ error: e.message });
+      }
+    }
+  </script>
+</body>
+</html>
