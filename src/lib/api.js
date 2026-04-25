@@ -227,6 +227,10 @@ class OffertoAPI {
     });
   }
 
+  async deleteCustomer(id) {
+    return this.request(`/customers/${id}`, { method: 'DELETE' });
+  }
+
   // === Document Methods ===
 
   async createDocument(document) {

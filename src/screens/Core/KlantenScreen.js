@@ -1,120 +1,148 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useOfferto } from '../../context/OffertoContext';
 import { DS } from '../../theme';
 import { Avatar } from '../../components/DesignSystem';
 import { currency } from '../../lib/utils';
 
+const getTotal = (d) => {
+  if (typeof d?.total === 'number') return d.total;
+  return d?.totals?.incTotal || 0;
+};
+
 export default function KlantenScreen({ navigation }) {
-  const { archive = [] } = useOfferto();
+  const { customers, archive = [] } = useOfferto();
   const [query, setQuery] = useState('');
 
   const docs = Array.isArray(archive) ? archive : [];
 
-  const klanten = useMemo(() => {
-    const getTotal = (d) => {
-      if (typeof d?.total === 'number') return d.total;
-      return d?.totals?.incTotal || 0;
-    };
-
-    // Build client list from docs if no dedicated clients array
-    const rawClients = (() => {
-      const map = new Map();
-      docs.forEach(d => {
-        const name = d.customer?.name || d.klant?.bedrijfsnaam;
-        if (!name) return;
-        if (!map.has(name)) {
-          map.set(name, {
-            id: name,
-            name,
-            contact: d.customer?.contactPerson || d.klant?.contactpersoon || '',
-            email: d.customer?.email || d.klant?.email || '',
-            docs: [],
+  // Merge backend customers + derive revenue/open from documents
+  const enriched = useMemo(() => {
+    const base = customers.length > 0
+      ? customers.map(c => ({
+          id: c.id,
+          name: c.name || '',
+          contact: c.contact_person || '',
+          email: c.email || '',
+          telefoon: c.phone || '',
+          adres: c.address_json?.adres || '',
+          btwNummer: c.vat || '',
+          _raw: c,
+        }))
+      : (() => {
+          // Fallback: derive from documents if no backend customers yet
+          const map = new Map();
+          docs.forEach(d => {
+            const name = d.klant?.bedrijfsnaam || d.customer?.name;
+            if (!name) return;
+            if (!map.has(name)) {
+              map.set(name, {
+                id: name,
+                name,
+                contact: d.klant?.contactpersoon || d.customer?.contactPerson || '',
+                email: d.klant?.email || d.customer?.email || '',
+                telefoon: d.klant?.telefoon || '',
+                adres: d.klant?.adres || '',
+                btwNummer: d.klant?.btwNummer || '',
+              });
+            }
           });
-        }
-        map.get(name).docs.push(d);
-      });
-      return Array.from(map.values());
-    })();
+          return Array.from(map.values());
+        })();
 
-    return rawClients
+    return base
       .map(c => {
         const clientDocs = docs.filter(d =>
-          (d.customer?.name || d.klant?.bedrijfsnaam) === (c.name || c.bedrijfsnaam)
+          (d.klant?.bedrijfsnaam || d.customer?.name) === c.name ||
+          (c.id && (d.customer_id === c.id || d.customer?.id === c.id))
         );
         const revenue = clientDocs.filter(d => d.type === 'FACTUUR').reduce((s, d) => s + getTotal(d), 0);
         const open = clientDocs.filter(d => d.type === 'FACTUUR' && d.status === 'Verzonden').reduce((s, d) => s + getTotal(d), 0);
-        const lastDoc = clientDocs.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-        return {
-          id: c.id || c.name || c.bedrijfsnaam,
-          name: c.name || c.bedrijfsnaam || '',
-          contact: c.contact || c.contactpersoon || '',
-          email: c.email || '',
-          revenue,
-          open,
-          lastDoc,
-        };
+        const lastDoc = [...clientDocs].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+        return { ...c, revenue, open, lastDoc, docCount: clientDocs.length };
       })
       .filter(c => {
         if (!query) return true;
         const q = query.toLowerCase();
-        return c.name.toLowerCase().includes(q) || c.contact.toLowerCase().includes(q);
-      });
-  }, [archive, query]);
+        return c.name.toLowerCase().includes(q) || c.contact.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [customers, archive, query]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      {/* Search bar */}
-      <View style={s.searchRow}>
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.title}>Klanten</Text>
+        <TouchableOpacity
+          style={s.addBtn}
+          onPress={() => navigation.navigate('KlantForm')}
+        >
+          <Ionicons name="add" size={22} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Search */}
+      <View style={s.searchWrap}>
         <View style={s.searchBar}>
-          <Text style={s.searchIcon}>🔍</Text>
+          <Ionicons name="search-outline" size={16} color={DS.colors.textTertiary} />
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Zoek klant..."
+            placeholder="Zoek op naam, contactpersoon, e-mail..."
             placeholderTextColor={DS.colors.textTertiary}
             style={s.searchInput}
           />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')}>
+              <Ionicons name="close-circle" size={16} color={DS.colors.textTertiary} />
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity
-          style={s.addBtn}
-          onPress={() => navigation.navigate('Wizard')}
-        >
-          <Text style={s.addBtnText}>+</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Count */}
       <View style={s.countRow}>
-        <Text style={s.countText}>{klanten.length} klant{klanten.length !== 1 ? 'en' : ''}</Text>
+        <Text style={s.countText}>{enriched.length} klant{enriched.length !== 1 ? 'en' : ''}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {klanten.length === 0 ? (
+        {enriched.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyText}>
-              {query ? 'Geen resultaten gevonden' : 'Nog geen klanten'}
-            </Text>
+            <Ionicons name="people-outline" size={40} color={DS.colors.textTertiary} />
+            <Text style={s.emptyTitle}>{query ? 'Geen resultaten' : 'Nog geen klanten'}</Text>
+            {!query && (
+              <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('KlantForm')}>
+                <Text style={s.emptyBtnText}>Eerste klant toevoegen</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        ) : klanten.map((c, i) => (
+        ) : enriched.map((c) => (
           <TouchableOpacity
-            key={c.id || i}
+            key={c.id}
             style={s.row}
             onPress={() => navigation.navigate('KlantDetail', { client: c })}
+            activeOpacity={0.7}
           >
             <Avatar name={c.name} size={42} />
             <View style={s.rowBody}>
               <Text style={s.rowName} numberOfLines={1}>{c.name}</Text>
-              <Text style={s.rowSub} numberOfLines={1}>{c.contact || c.email}</Text>
+              <Text style={s.rowSub} numberOfLines={1}>
+                {c.contact ? c.contact : c.email || 'Geen contactgegevens'}
+              </Text>
             </View>
             <View style={s.rowRight}>
-              <Text style={s.revenueText}>{currency(c.revenue)}</Text>
-              {c.open > 0 && (
-                <Text style={s.openText}>{currency(c.open)} open</Text>
-              )}
+              {c.revenue > 0 && <Text style={s.revenueText}>{currency(c.revenue)}</Text>}
+              {c.open > 0
+                ? <Text style={s.openText}>{currency(c.open)} open</Text>
+                : c.docCount > 0
+                  ? <Text style={s.docCountText}>{c.docCount} doc{c.docCount !== 1 ? 's' : ''}</Text>
+                  : null
+              }
             </View>
-            <Text style={s.chevron}>›</Text>
+            <Ionicons name="chevron-forward" size={16} color={DS.colors.textTertiary} />
           </TouchableOpacity>
         ))}
         <View style={{ height: 24 }} />
@@ -125,27 +153,24 @@ export default function KlantenScreen({ navigation }) {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12,
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
   },
-  searchBar: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: DS.colors.bg, borderRadius: DS.radius.sm,
-    borderWidth: 1, borderColor: DS.colors.border,
-    paddingHorizontal: 14, paddingVertical: 11, gap: 10,
-  },
-  searchIcon: { fontSize: 14 },
-  searchInput: { flex: 1, fontSize: 15, color: DS.colors.textPrimary },
+  title: { fontSize: 22, fontWeight: '800', color: DS.colors.textPrimary, letterSpacing: -0.5 },
   addBtn: {
-    width: 42, height: 42, borderRadius: DS.radius.sm,
+    width: 36, height: 36, borderRadius: DS.radius.sm,
     backgroundColor: DS.colors.accent, alignItems: 'center', justifyContent: 'center',
   },
-  addBtnText: { color: '#fff', fontSize: 22, lineHeight: 26, fontWeight: '300' },
-  countRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingBottom: 8,
+  searchWrap: { paddingHorizontal: 16, paddingBottom: 10 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: DS.colors.bg, borderRadius: DS.radius.sm,
+    borderWidth: 1, borderColor: DS.colors.border,
+    paddingHorizontal: 14, paddingVertical: 11,
   },
+  searchInput: { flex: 1, fontSize: 15, color: DS.colors.textPrimary },
+  countRow: { paddingHorizontal: 16, paddingBottom: 8 },
   countText: { fontSize: 12, fontWeight: '700', color: DS.colors.textTertiary, letterSpacing: 0.8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -155,10 +180,15 @@ const s = StyleSheet.create({
   rowBody: { flex: 1, minWidth: 0 },
   rowName: { fontSize: 15, fontWeight: '600', color: DS.colors.textPrimary },
   rowSub: { fontSize: 12, color: DS.colors.textSecondary, marginTop: 1 },
-  rowRight: { alignItems: 'flex-end', flexShrink: 0 },
+  rowRight: { alignItems: 'flex-end', flexShrink: 0, marginRight: 4 },
   revenueText: { fontSize: 14, fontWeight: '700', color: DS.colors.textPrimary },
   openText: { fontSize: 11, fontWeight: '600', color: DS.colors.warning, marginTop: 2 },
-  chevron: { fontSize: 20, color: DS.colors.textTertiary },
-  empty: { padding: 32, alignItems: 'center' },
-  emptyText: { fontSize: 14, color: DS.colors.textSecondary },
+  docCountText: { fontSize: 11, color: DS.colors.textTertiary, marginTop: 2 },
+  empty: { paddingTop: 64, alignItems: 'center', gap: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: DS.colors.textSecondary },
+  emptyBtn: {
+    marginTop: 8, paddingHorizontal: 20, paddingVertical: 11,
+    backgroundColor: DS.colors.accent, borderRadius: DS.radius.sm,
+  },
+  emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

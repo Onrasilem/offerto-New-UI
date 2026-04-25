@@ -126,6 +126,7 @@ export function OffertoProvider({ children }) {
   const [statusFilter, setStatusFilter] = useState('ALLE');
   const [reminderPrefs, setReminderPrefs] = useState({ daysUntilReminder: 7 });
   const [signatureData, setSignatureData] = useState(null);
+  const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [productCategories, setProductCategories] = useState([]);
 
@@ -446,6 +447,40 @@ export function OffertoProvider({ children }) {
     }
   }, [user]);
 
+  const refreshCustomers = useCallback(async () => {
+    if (!USE_BACKEND_API || !api.accessToken) return;
+    try {
+      const data = await api.getCustomers();
+      setCustomers(data || []);
+    } catch (e) {
+      console.warn('Failed to load customers:', e.message);
+    }
+  }, [user]);
+
+  async function addCustomer(data) {
+    const result = await api.createCustomer(data);
+    setCustomers(prev => [result.customer, ...prev]);
+    return result.customer;
+  }
+
+  async function editCustomer(id, data) {
+    const result = await api.updateCustomer(id, data);
+    setCustomers(prev => prev.map(c => c.id === id ? result.customer : c));
+    return result.customer;
+  }
+
+  async function removeCustomer(id) {
+    await api.deleteCustomer(id);
+    setCustomers(prev => prev.filter(c => c.id !== id));
+  }
+
+  function startNewDocumentForKlant(klantData) {
+    setKlant(klantData);
+    setOnderdelen([]);
+    setDocType('OFFERTE');
+    setDocNummer('');
+  }
+
   async function saveCompany(patch) {
     const updated = { ...company, ...patch };
     setCompany(updated);
@@ -458,13 +493,14 @@ export function OffertoProvider({ children }) {
     await AsyncStorage.setItem(STORAGE.reminderPrefs, JSON.stringify(updated));
   }
 
-  // Load products on mount if user is logged in
+  // Load products and customers on mount if user is logged in
   useEffect(() => {
     if (user && !booting) {
       refreshProducts();
       refreshProductCategories();
+      refreshCustomers();
     }
-  }, [user, booting, refreshProducts, refreshProductCategories]);
+  }, [user, booting, refreshProducts, refreshProductCategories, refreshCustomers]);
 
   return (
     <OffertoContext.Provider value={{
@@ -480,6 +516,8 @@ export function OffertoProvider({ children }) {
       statusFilter, setStatusFilter,
       reminderPrefs, setReminderPrefs, saveReminderPrefs,
       signatureData, setSignatureData, isInArchive,
+      customers, refreshCustomers, addCustomer, editCustomer, removeCustomer,
+      startNewDocumentForKlant,
       products, refreshProducts,
       productCategories, refreshProductCategories,
     }}>

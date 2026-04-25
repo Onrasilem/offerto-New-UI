@@ -69,4 +69,16 @@ router.put('/:id', authRequired, async (req, res) => {
   }
 });
 
+// Delete customer
+router.delete('/:id', authRequired, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await query('delete from customers where id=$1 and owner_id=$2', [id, req.user.sub]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Delete customer error:', e);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
 export default router;

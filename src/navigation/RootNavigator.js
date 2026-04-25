@@ -19,6 +19,7 @@ import EmailTemplatesScreen from '../screens/Core/EmailTemplatesScreen';
 import ProductenScreen from '../screens/Core/ProductenScreen';
 import ProductDetailScreen from '../screens/Core/ProductDetailScreen';
 import BetalingenScreen from '../screens/Core/BetalingenScreen';
+import KlantFormScreen from '../screens/Core/KlantFormScreen';
 import IBANScreen from '../screens/Settings/IBANScreen';
 import NummeringScreen from '../screens/Settings/NummeringScreen';
 import BetalingstermijnScreen from '../screens/Settings/BetalingstermijnScreen';
@@ -70,6 +71,16 @@ export default function RootNavigator() {
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="Betalingen" component={BetalingenScreen} />
             <Stack.Screen name="ProfielWizard" component={ProfielWizard} />
+            <Stack.Screen name="KlantForm" component={KlantFormScreen}
+              options={({ route }) => ({
+                headerShown: true,
+                title: route.params?.customer ? 'Klant bewerken' : 'Nieuwe klant',
+                headerBackTitleVisible: false,
+                headerTintColor: DS.colors.accent,
+                headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary },
+                headerShadowVisible: false,
+                contentStyle: { backgroundColor: DS.colors.bg },
+              })} />
 
             {/* Settings sub-screens */}
             <Stack.Screen name="IBAN" component={IBANScreen}
