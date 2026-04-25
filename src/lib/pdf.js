@@ -108,7 +108,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         .header {
           margin-bottom: 20px;
           padding-bottom: 15px;
-          border-bottom: 3px solid #0066cc;
+          border-bottom: 3px solid #2563EB;
         }
         .logo {
           margin-bottom: 10px;
@@ -119,7 +119,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         }
         h1 {
           font-size: 24pt;
-          color: #0066cc;
+          color: #2563EB;
           margin: 10px 0;
           font-weight: bold;
         }
@@ -128,7 +128,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
           color: #333;
           margin: 15px 0 8px 0;
           font-weight: bold;
-          border-bottom: 2px solid #0066cc;
+          border-bottom: 2px solid #2563EB;
           padding-bottom: 4px;
         }
         .document-info {
@@ -136,7 +136,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
           padding: 12px;
           border-radius: 4px;
           margin-bottom: 20px;
-          border-left: 4px solid #0066cc;
+          border-left: 4px solid #2563EB;
         }
         .document-info table {
           width: 100%;
@@ -169,7 +169,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         .party-title {
           font-weight: bold;
           font-size: 11pt;
-          color: #0066cc;
+          color: #2563EB;
           margin-bottom: 8px;
           border-bottom: 1px solid #ddd;
           padding-bottom: 4px;
@@ -184,7 +184,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
           margin: 15px 0;
         }
         table.items th {
-          background: #0066cc;
+          background: #2563EB;
           color: white;
           padding: 8px 6px;
           text-align: left;
@@ -203,7 +203,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
           text-align: right;
         }
         table.items tr:last-child td {
-          border-bottom: 2px solid #0066cc;
+          border-bottom: 2px solid #2563EB;
         }
         table.items tbody tr:hover {
           background: #f8f9fa;
@@ -226,7 +226,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         }
         table.totals {
           width: 100%;
-          border: 2px solid #0066cc;
+          border: 2px solid #2563EB;
           border-radius: 4px;
           background: #f8f9fa;
         }
@@ -243,7 +243,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
           font-weight: bold;
         }
         table.totals tr:last-child {
-          background: #0066cc;
+          background: #2563EB;
           color: white;
           font-size: 11pt;
         }
@@ -268,14 +268,14 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         .payment-info {
           background: #e8f4f8;
           padding: 12px;
-          border-left: 4px solid #0066cc;
+          border-left: 4px solid #2563EB;
           margin: 15px 0;
           border-radius: 4px;
         }
         .payment-info h3 {
           font-size: 11pt;
           margin-bottom: 8px;
-          color: #0066cc;
+          color: #2563EB;
         }
         .payment-info table {
           width: 100%;
@@ -324,7 +324,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         .signature-section h3 {
           font-size: 11pt;
           margin-bottom: 10px;
-          color: #0066cc;
+          color: #2563EB;
         }
         .signature-image {
           max-height: 80px;
@@ -355,7 +355,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
     <body>
       <!-- Header -->
       <div class="header">
-        ${company.logoUrl ? `<div class="logo"><img src="${escapeHtml(company.logoUrl)}" alt="Logo" /></div>` : ''}
+        ${company.logoUrl ? `<div class="logo"><img src="${company.logoUrl}" alt="Logo" /></div>` : ''}
         <h1>${escapeHtml(docType)} ${escapeHtml(nummer)}</h1>
       </div>
 
@@ -436,7 +436,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
         <div class="summary-left">
           ${docType === 'FACTUUR' ? `
           <div class="payment-info">
-            <h3>📋 Betalingsinformatie</h3>
+            <h3>Betalingsinformatie</h3>
             <table>
               <tr>
                 <td>IBAN:</td>
@@ -484,7 +484,7 @@ export async function buildPdf({ company, klant, lines, exTotal, btwTotal, incTo
       <div class="signature-section">
         <h3>✍️ Digitale Goedkeuring</h3>
         <p style="margin-bottom: 8px;">Dit document is digitaal goedgekeurd via Offerto.</p>
-        <img src="${signatureData}" class="signature-image" alt="Handtekening" />
+        <img src="${signatureData || ''}" class="signature-image" alt="Handtekening" />
         <p style="font-size: 8pt; color: #666; margin-top: 8px;">
           Getekend op: ${new Date(docDatum).toLocaleDateString('nl-NL')} | Document: ${escapeHtml(docType)} ${escapeHtml(nummer)}
         </p>

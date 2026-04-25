@@ -7,7 +7,7 @@ import { useFormValidation } from '../../lib/useFormValidation';
 import { showSuccessToast, showErrorToast } from '../../lib/toast';
 
 export default function ProfielWizard({navigation}){
-  const { company, setCompany, isLoading } = useOfferto();
+  const { company, setCompany, saveCompany, isLoading } = useOfferto();
   const [isSaving, setIsSaving] = useState(false);
 
   // Define validation rules
@@ -30,8 +30,8 @@ export default function ProfielWizard({navigation}){
     async (values) => {
       setIsSaving(true);
       try {
-        setCompany({ ...company, ...values });
-        showSuccessToast('Profile saved successfully');
+        await saveCompany({ ...company, ...values });
+        showSuccessToast('Bedrijfsprofiel opgeslagen');
         navigation.replace('Main');
       } catch (error) {
         showErrorToast(error.message || 'Failed to save profile');
