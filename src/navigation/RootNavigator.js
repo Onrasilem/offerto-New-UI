@@ -19,6 +19,12 @@ import EmailTemplatesScreen from '../screens/Core/EmailTemplatesScreen';
 import ProductenScreen from '../screens/Core/ProductenScreen';
 import ProductDetailScreen from '../screens/Core/ProductDetailScreen';
 import BetalingenScreen from '../screens/Core/BetalingenScreen';
+import IBANScreen from '../screens/Settings/IBANScreen';
+import NummeringScreen from '../screens/Settings/NummeringScreen';
+import BetalingstermijnScreen from '../screens/Settings/BetalingstermijnScreen';
+import BTWScreen from '../screens/Settings/BTWScreen';
+import HerinneringenScreen from '../screens/Settings/HerinneringenScreen';
+import WachtwoordScreen from '../screens/Settings/WachtwoordScreen';
 import { DS } from '../theme';
 
 const Stack = createNativeStackNavigator();
@@ -58,11 +64,26 @@ export default function RootNavigator() {
             <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} />
             <Stack.Screen name="KlantDetail" component={KlantDetailScreen} />
             <Stack.Screen name="BetalingDetail" component={BetalingDetailScreen} />
-            <Stack.Screen name="EmailTemplates" component={EmailTemplatesScreen} />
+            <Stack.Screen name="EmailTemplates" component={EmailTemplatesScreen}
+              options={{ headerShown: true, title: 'E-mail templates', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
             <Stack.Screen name="Producten" component={ProductenScreen} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="Betalingen" component={BetalingenScreen} />
             <Stack.Screen name="ProfielWizard" component={ProfielWizard} />
+
+            {/* Settings sub-screens */}
+            <Stack.Screen name="IBAN" component={IBANScreen}
+              options={{ headerShown: true, title: 'IBAN & betaling', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
+            <Stack.Screen name="Nummering" component={NummeringScreen}
+              options={{ headerShown: true, title: 'Nummering', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
+            <Stack.Screen name="Betalingstermijn" component={BetalingstermijnScreen}
+              options={{ headerShown: true, title: 'Betalingstermijn', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
+            <Stack.Screen name="BTW" component={BTWScreen}
+              options={{ headerShown: true, title: 'BTW-tarieven', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
+            <Stack.Screen name="Herinneringen" component={HerinneringenScreen}
+              options={{ headerShown: true, title: 'Herinneringen', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
+            <Stack.Screen name="Wachtwoord" component={WachtwoordScreen}
+              options={{ headerShown: true, title: 'Wachtwoord wijzigen', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
           </>
         )}
       </Stack.Navigator>

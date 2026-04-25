@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useOfferto } from '../../context/OffertoContext';
 import { DS } from '../../theme';
 import { Avatar } from '../../components/DesignSystem';
@@ -9,33 +10,32 @@ const SECTIONS = [
   {
     key: 'FACTURATIE',
     rows: [
-      { icon: '💶', label: 'IBAN & betaling', nav: 'Instellingen' },
-      { icon: '🔢', label: 'Nummering', nav: 'Instellingen' },
-      { icon: '📅', label: 'Betalingstermijn', nav: 'Instellingen' },
-      { icon: '🧮', label: 'BTW-tarieven', nav: 'Instellingen' },
+      { icon: 'card-outline',        label: 'IBAN & betaling',    nav: 'IBAN' },
+      { icon: 'document-text-outline', label: 'Nummering',         nav: 'Nummering' },
+      { icon: 'calendar-outline',    label: 'Betalingstermijn',   nav: 'Betalingstermijn' },
+      { icon: 'calculator-outline',  label: 'BTW-tarieven',       nav: 'BTW' },
     ],
   },
   {
-    key: 'E-MAIL',
+    key: 'E-MAIL & MELDINGEN',
     rows: [
-      { icon: '✉️', label: 'Offerte template', nav: 'EmailTemplates' },
-      { icon: '✉️', label: 'Factuur template', nav: 'EmailTemplates' },
-      { icon: '🔔', label: 'Herinneringen', right: 'Aan', green: true, nav: 'Instellingen' },
+      { icon: 'mail-outline',        label: 'Offerte template',   nav: 'EmailTemplates', params: { type: 'offerte' } },
+      { icon: 'mail-outline',        label: 'Factuur template',   nav: 'EmailTemplates', params: { type: 'factuur' } },
+      { icon: 'alarm-outline',       label: 'Herinneringen',      nav: 'Herinneringen' },
     ],
   },
   {
     key: 'INTEGRATIES',
     rows: [
-      { icon: '💳', label: 'Mollie betalingen', right: 'Verbonden', green: true, nav: 'Instellingen' },
-      { icon: '📧', label: 'E-mailadres koppelen', nav: 'Instellingen' },
+      { icon: 'wallet-outline',      label: 'Mollie betalingen',  nav: 'MollieInstelling', badge: 'Binnenkort' },
+      { icon: 'send-outline',        label: 'Peppol / e-invoicing', nav: 'PeppolInstelling', badge: 'Binnenkort' },
     ],
   },
   {
-    key: 'APP',
+    key: 'ACCOUNT',
     rows: [
-      { icon: '🔔', label: 'Notificaties', right: 'Aan', nav: 'Instellingen' },
-      { icon: '🌐', label: 'Standaard taal', right: 'Nederlands', nav: 'Instellingen' },
-      { icon: 'ℹ️', label: 'Over Offerto', right: 'v2.1.0', nav: 'Instellingen' },
+      { icon: 'lock-closed-outline', label: 'Wachtwoord wijzigen', nav: 'Wachtwoord' },
+      { icon: 'information-circle-outline', label: 'Over Offerto', nav: 'OverOfferto' },
     ],
   },
 ];
@@ -54,6 +54,15 @@ export default function InstellingenScreen({ navigation }) {
     ]);
   }
 
+  function handleNav(nav, params) {
+    if (!nav) return;
+    if (nav === 'MollieInstelling' || nav === 'PeppolInstelling' || nav === 'OverOfferto') {
+      Alert.alert('Binnenkort beschikbaar', 'Deze functie is nog in ontwikkeling.');
+      return;
+    }
+    navigation.navigate(nav, params);
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.header}>
@@ -70,7 +79,8 @@ export default function InstellingenScreen({ navigation }) {
               {!!companyEmail && <Text style={s.profileEmail}>{companyEmail}</Text>}
               {!!btwNr && <Text style={s.profileBtw}>{btwNr}</Text>}
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('ProfielWizard')}>
+            <TouchableOpacity onPress={() => navigation.navigate('ProfielWizard')} style={s.editBtn}>
+              <Ionicons name="pencil-outline" size={14} color={DS.colors.accent} />
               <Text style={s.editText}>Bewerk</Text>
             </TouchableOpacity>
           </View>
@@ -82,25 +92,31 @@ export default function InstellingenScreen({ navigation }) {
             <View style={s.sectionLabel}>
               <Text style={s.sectionLabelText}>{section.key}</Text>
             </View>
-            {section.rows.map((row, i) => (
+            {section.rows.map(row => (
               <TouchableOpacity
                 key={row.label}
                 style={s.settingRow}
-                onPress={() => row.nav && navigation.navigate(row.nav)}
+                onPress={() => handleNav(row.nav, row.params)}
+                activeOpacity={0.7}
               >
-                <Text style={s.rowIcon}>{row.icon}</Text>
+                <View style={s.rowIconWrap}>
+                  <Ionicons name={row.icon} size={19} color={DS.colors.accent} />
+                </View>
                 <Text style={s.rowLabel}>{row.label}</Text>
-                {row.right ? (
-                  <Text style={[s.rowRight, row.green && s.rowRightGreen]}>{row.right}</Text>
+                {row.badge ? (
+                  <View style={s.badge}>
+                    <Text style={s.badgeText}>{row.badge}</Text>
+                  </View>
                 ) : null}
-                <Text style={s.chevron}>›</Text>
+                <Ionicons name="chevron-forward" size={16} color={DS.colors.textTertiary} />
               </TouchableOpacity>
             ))}
           </View>
         ))}
 
         {/* Sign out */}
-        <TouchableOpacity style={s.signOutRow} onPress={handleSignOut}>
+        <TouchableOpacity style={s.signOutRow} onPress={handleSignOut} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={18} color={DS.colors.danger} />
           <Text style={s.signOutText}>Uitloggen</Text>
         </TouchableOpacity>
 
@@ -127,24 +143,35 @@ const s = StyleSheet.create({
   profileName: { fontSize: 16, fontWeight: '800', color: DS.colors.textPrimary },
   profileEmail: { fontSize: 13, color: DS.colors.textSecondary, marginTop: 2 },
   profileBtw: { fontSize: 12, color: DS.colors.textTertiary, marginTop: 2 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   editText: { fontSize: 13, color: DS.colors.accent, fontWeight: '600' },
   sectionLabel: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
   sectionLabelText: {
     fontSize: 11, fontWeight: '700', color: DS.colors.textTertiary, letterSpacing: 0.8,
   },
   settingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 20, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 13,
     borderBottomWidth: 1, borderBottomColor: DS.colors.borderLight,
+    backgroundColor: '#fff',
   },
-  rowIcon: { fontSize: 20, width: 24, textAlign: 'center' },
+  rowIconWrap: {
+    width: 32, height: 32, borderRadius: DS.radius.xs,
+    backgroundColor: DS.colors.accentSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
   rowLabel: { flex: 1, fontSize: 15, color: DS.colors.textPrimary },
-  rowRight: { fontSize: 14, color: DS.colors.textTertiary },
-  rowRightGreen: { color: DS.colors.success, fontWeight: '600' },
-  chevron: { fontSize: 20, color: DS.colors.textTertiary },
+  badge: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: DS.colors.warningSoft,
+    borderRadius: DS.radius.full,
+  },
+  badgeText: { fontSize: 11, fontWeight: '700', color: DS.colors.warningText },
   signOutRow: {
-    alignItems: 'center', paddingVertical: 20, marginHorizontal: 20, marginTop: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 16, marginHorizontal: 20, marginTop: 20,
     borderRadius: DS.radius.md, borderWidth: 1, borderColor: DS.colors.dangerSoft,
+    backgroundColor: DS.colors.dangerSoft,
   },
   signOutText: { fontSize: 15, color: DS.colors.danger, fontWeight: '600' },
 });

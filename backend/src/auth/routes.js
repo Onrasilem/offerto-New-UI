@@ -2,6 +2,7 @@ import express from 'express';
 import { hashPassword, verifyPassword } from './password.js';
 import { signAccess, signRefresh, verifyToken } from './jwt.js';
 import { query } from '../db.js';
+import { authRequired } from '../middleware/authRequired.js';
 
 const router = express.Router();
 
@@ -82,6 +83,24 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', (_req, res) => {
   // For stateless JWT we just let tokens expire; add DB revocation if needed
   res.json({ ok: true });
+});
+
+router.put('/password', authRequired, async (req, res) => {
+  const { current, newPassword } = req.body || {};
+  if (!current || !newPassword) return res.status(400).json({ error: 'current en newPassword zijn verplicht' });
+  if (newPassword.length < 8) return res.status(400).json({ error: 'Wachtwoord moet minimaal 8 tekens zijn' });
+  try {
+    const r = await query('select password_hash from users where id=$1', [req.user.sub]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Gebruiker niet gevonden' });
+    const ok = await verifyPassword(current, r.rows[0].password_hash);
+    if (!ok) return res.status(401).json({ error: 'Huidig wachtwoord is onjuist' });
+    const hash = await hashPassword(newPassword);
+    await query('update users set password_hash=$1 where id=$2', [hash, req.user.sub]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server error' });
+  }
 });
 
 export default router;

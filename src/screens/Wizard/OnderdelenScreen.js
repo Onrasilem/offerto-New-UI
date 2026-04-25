@@ -1,18 +1,18 @@
-// src/screens/Wizard/OnderdelenScreen.js
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ScreenWrapper, Card, Field, TextBox, Button, Chip, theme } from '../../components/UI';
-import { ValidatedInput } from '../../components/ValidatedInput';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOfferto } from '../../context/OffertoContext';
-import { validateOnderdeel } from '../../lib/validators';
 import { showErrorToast, showSuccessToast } from '../../lib/toast';
+import { DS } from '../../theme';
+import { currency } from '../../lib/utils';
+import { Ionicons } from '@expo/vector-icons';
 
 const UNITS = [
-  { label: 'stuk',  value: 'st'  },
-  { label: 'uur',   value: 'uur' },
-  { label: 'm²',    value: 'm2'  },
-  { label: 'm³',    value: 'm3'  },
-  { label: 'meter', value: 'm'   },
+  { label: 'stuk', value: 'st' },
+  { label: 'uur',  value: 'uur' },
+  { label: 'm²',   value: 'm2' },
+  { label: 'm³',   value: 'm3' },
+  { label: 'meter',value: 'm' },
 ];
 
 const VATS = [0, 6, 9, 21];
@@ -25,7 +25,6 @@ const parseNum = (v) => {
 export default function OnderdelenScreen({ navigation }) {
   const { onderdelen, addOnderdeel, removeOnderdeel, products } = useOfferto();
 
-  const [showProductPicker, setShowProductPicker] = useState(false);
   const [form, setForm] = useState({
     omschrijving: '',
     aantal: '1',
@@ -34,310 +33,205 @@ export default function OnderdelenScreen({ navigation }) {
     btwPerc: 21,
   });
 
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-
-  const handleChange = (patch) => {
-    setForm((prev) => ({ ...prev, ...patch }));
-    // Validate as user types if field was touched
-    if (Object.keys(touched).length > 0) {
-      const newForm = { ...form, ...patch };
-      const validationErrors = validateOnderdeel(newForm);
-      setErrors(validationErrors);
-    }
-  };
-
-  const handleBlur = (field) => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    const validationErrors = validateOnderdeel(form);
-    setErrors(validationErrors);
-  };
-
-  const selectProduct = (product) => {
-    setForm({
-      omschrijving: product.name,
-      aantal: '1',
-      eenheid: product.unit || 'st',
-      eenheidsprijs: product.price.toString(),
-      btwPerc: product.tax_rate || 21,
-    });
-    setShowProductPicker(false);
-    showSuccessToast('Product geselecteerd');
-  };
+  const change = (patch) => setForm(prev => ({ ...prev, ...patch }));
 
   const add = () => {
-    const validationErrors = validateOnderdeel(form);
-    
-    if (Object.keys(validationErrors).length > 0) {
-      Object.values(validationErrors).forEach(error => showErrorToast(error));
-      setErrors(validationErrors);
-      setTouched({
-        omschrijving: true,
-        aantal: true,
-        eenheidsprijs: true,
-      });
-      return;
-    }
-
-    const parseNum = (v) => {
-      const n = parseFloat(String(v ?? '').replace(',', '.'));
-      return Number.isFinite(n) ? n : 0;
-    };
+    if (!form.omschrijving.trim()) return showErrorToast('Vul een omschrijving in');
+    if (!form.eenheidsprijs) return showErrorToast('Vul een prijs in');
 
     const qty = parseNum(form.aantal) || 1;
     const price = parseNum(form.eenheidsprijs);
     const vat = parseNum(form.btwPerc);
+    const ex = qty * price;
+    const btwA = ex * (vat / 100);
 
-    addOnderdeel({
-      omschrijving: form.omschrijving,
-      aantal: qty,
-      eenheid: form.eenheid,
-      eenheidsprijs: price,
-      btwPerc: vat,
-      ex: qty * price,
-      btwA: qty * price * (vat / 100),
-    });
-
-    setForm({
-      omschrijving: '',
-      aantal: '1',
-      eenheid: 'st',
-      eenheidsprijs: '',
-      btwPerc: 21,
-    });
-    setErrors({});
-    setTouched({});
+    addOnderdeel({ omschrijving: form.omschrijving.trim(), aantal: qty, eenheid: form.eenheid, eenheidsprijs: price, btwPerc: vat, ex, btwA });
+    setForm({ omschrijving: '', aantal: '1', eenheid: 'st', eenheidsprijs: '', btwPerc: 21 });
     showSuccessToast('Onderdeel toegevoegd');
   };
 
-  const canGoNext = onderdelen.length > 0;
-
-  const goNext = () => {
-    if (!canGoNext) {
-      alert('Voeg minstens één onderdeel toe voordat je naar het overzicht gaat.');
-      return;
-    }
-    navigation.navigate('Overzicht');
-  };
-
   return (
-    <ScreenWrapper>
-      <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>📦 Onderdelen</Text>
-        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
-          Voeg de offerteposts in
-        </Text>
-      </View>
+    <SafeAreaView style={s.safe} edges={['bottom']}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Nieuw onderdeel</Text>
 
-      {/* Product Picker */}
-      {products && products.length > 0 && (
-        <Card style={{ marginBottom: theme.space.md }}>
-          <TouchableOpacity
-            style={styles.productPickerButton}
-            onPress={() => setShowProductPicker(!showProductPicker)}
-          >
-            <Text style={styles.productPickerButtonText}>
-              📦 {showProductPicker ? 'Verberg' : 'Kies uit producten'}
-            </Text>
-          </TouchableOpacity>
+          {/* Omschrijving */}
+          <View style={s.field}>
+            <Text style={s.label}>Omschrijving</Text>
+            <TextInput
+              style={s.input}
+              value={form.omschrijving}
+              onChangeText={v => change({ omschrijving: v })}
+              placeholder="Bijv. Uur werk, Materiaal..."
+              placeholderTextColor={DS.colors.textTertiary}
+            />
+          </View>
 
-          {showProductPicker && (
-            <View style={styles.productList}>
-              {products.slice(0, 10).map((product) => (
+          {/* Aantal + Prijs */}
+          <View style={s.row}>
+            <View style={s.halfField}>
+              <Text style={s.label}>Aantal</Text>
+              <TextInput
+                style={s.input}
+                value={form.aantal}
+                onChangeText={v => change({ aantal: v })}
+                keyboardType="numeric"
+                placeholderTextColor={DS.colors.textTertiary}
+              />
+            </View>
+            <View style={s.halfField}>
+              <Text style={s.label}>Prijs (€)</Text>
+              <TextInput
+                style={s.input}
+                value={form.eenheidsprijs}
+                onChangeText={v => change({ eenheidsprijs: v })}
+                keyboardType="numeric"
+                placeholder="0,00"
+                placeholderTextColor={DS.colors.textTertiary}
+              />
+            </View>
+          </View>
+
+          {/* Eenheid */}
+          <View style={s.field}>
+            <Text style={s.label}>Eenheid</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+              {UNITS.map(u => (
                 <TouchableOpacity
-                  key={product.id}
-                  style={styles.productItem}
-                  onPress={() => selectProduct(product)}
+                  key={u.value}
+                  style={[s.chip, form.eenheid === u.value && s.chipActive]}
+                  onPress={() => change({ eenheid: u.value })}
                 >
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    {product.description && (
-                      <Text style={styles.productDescription} numberOfLines={1}>
-                        {product.description}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={styles.productPrice}>€{parseFloat(product.price).toFixed(2)}</Text>
+                  <Text style={[s.chipText, form.eenheid === u.value && s.chipTextActive]}>{u.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* BTW */}
+          <View style={s.field}>
+            <Text style={s.label}>BTW</Text>
+            <View style={s.chips}>
+              {VATS.map(v => (
+                <TouchableOpacity
+                  key={v}
+                  style={[s.chip, form.btwPerc === v && s.chipActive]}
+                  onPress={() => change({ btwPerc: v })}
+                >
+                  <Text style={[s.chipText, form.btwPerc === v && s.chipTextActive]}>{v}%</Text>
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-        </Card>
-      )}
-
-      {/* Nieuw onderdeel */}
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
-          Nieuw onderdeel
-        </Text>
-        
-        <ValidatedInput
-          label="Omschrijving"
-          placeholder="Bijv. Indienststelling airco / Uur werk / Materiaal"
-          value={form.omschrijving}
-          onChangeText={(v) => handleChange({ omschrijving: v })}
-          onBlur={() => handleBlur('omschrijving')}
-          error={errors.omschrijving}
-          touched={touched.omschrijving}
-        />
-
-        <View style={{ flexDirection: 'row', gap: theme.space.md }}>
-          <View style={{ flex: 1 }}>
-            <ValidatedInput
-              label="Aantal"
-              placeholder="1"
-              keyboardType="numeric"
-              value={form.aantal}
-              onChangeText={(v) => handleChange({ aantal: v })}
-              onBlur={() => handleBlur('aantal')}
-              error={errors.aantal}
-              touched={touched.aantal}
-            />
           </View>
-          <View style={{ flex: 1 }}>
-            <Field label="Eenheid">
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
-                {UNITS.map((u) => (
-                  <Chip
-                    key={u.value}
-                    label={u.label}
-                    active={form.eenheid === u.value}
-                    onPress={() => handleChange({ eenheid: u.value })}
-                  />
-                ))}
-              </View>
-            </Field>
-          </View>
+
+          <TouchableOpacity style={s.addBtn} onPress={add}>
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={s.addBtnText}>Toevoegen</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: theme.space.md }}>
-          <View style={{ flex: 1 }}>
-            <ValidatedInput
-              label="Prijs per eenheid (€)"
-              placeholder="Bijv. 60"
-              keyboardType="numeric"
-              value={form.eenheidsprijs}
-              onChangeText={(v) => handleChange({ eenheidsprijs: v })}
-              onBlur={() => handleBlur('eenheidsprijs')}
-              error={errors.eenheidsprijs}
-              touched={touched.eenheidsprijs}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label="BTW">
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
-                {VATS.map((v) => (
-                  <Chip
-                    key={v}
-                    label={`${v}%`}
-                    active={form.btwPerc === v}
-                    onPress={() => handleChange({ btwPerc: v })}
-                  />
-                ))}
+        {/* Toegevoegde onderdelen */}
+        {onderdelen.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Toegevoegd ({onderdelen.length})</Text>
+            {onderdelen.map((item, idx) => (
+              <View key={item.id} style={s.lineRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.lineName} numberOfLines={2}>{item.omschrijving}</Text>
+                  <Text style={s.lineMeta}>
+                    {item.aantal} {item.eenheid} × {currency(item.eenheidsprijs)} · BTW {item.btwPerc}%
+                  </Text>
+                </View>
+                <View style={s.lineRight}>
+                  <Text style={s.lineTotal}>{currency(item.ex + item.btwA)}</Text>
+                  <TouchableOpacity onPress={() => removeOnderdeel(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="trash-outline" size={18} color={DS.colors.danger} />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </Field>
+            ))}
           </View>
-        </View>
-
-        <Button title="Toevoegen" onPress={add} />
-      </Card>
-
-      {/* Lijst onderdelen */}
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
-          Toegevoegde onderdelen ({onderdelen.length})
-        </Text>
-        {onderdelen.length === 0 ? (
-          <Text style={{ fontSize: theme.text.body, color: theme.color.textMuted }}>
-            Nog geen onderdelen toegevoegd.
-          </Text>
-        ) : (
-          onderdelen.map((item, idx) => (
-            <View
-              key={item.id}
-              style={{
-                borderTopWidth: 1,
-                borderTopColor: theme.color.border,
-                paddingVertical: theme.space.md,
-              }}
-            >
-              <Text style={{ fontSize: theme.text.body, fontWeight: '600', color: theme.color.primary, marginBottom: theme.space.xs }}>
-                {idx + 1}. {item.omschrijving}
-              </Text>
-              <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginBottom: theme.space.md }}>
-                {item.aantal} {item.eenheid} × €{Number(item.eenheidsprijs).toFixed(2)} • BTW {item.btwPerc}% • Totaal: €{Number(item.ex + item.btwA).toFixed(2)}
-              </Text>
-              <Button
-                title="Verwijderen"
-                variant="secondary"
-                size="sm"
-                onPress={() => removeOnderdeel(item.id)}
-              />
-            </View>
-          ))
         )}
-      </Card>
 
-      {/* Navigatie */}
-      <Button
-        title={onderdelen.length > 0 ? "Volgende: Overzicht" : "Voeg onderdeel toe"}
-        onPress={() => {
-          if (onderdelen.length === 0) {
-            showErrorToast('Voeg minstens één onderdeel toe.');
-            return;
-          }
-          navigation.navigate('Overzicht');
-        }}
-        disabled={onderdelen.length === 0}
-        style={{ marginBottom: theme.space.lg }}
-      />
-    </ScreenWrapper>
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      {/* Sticky bottom button */}
+      <View style={s.footer}>
+        <TouchableOpacity
+          style={[s.nextBtn, onderdelen.length === 0 && s.nextBtnDisabled]}
+          onPress={() => {
+            if (onderdelen.length === 0) return showErrorToast('Voeg minstens één onderdeel toe');
+            navigation.navigate('Overzicht');
+          }}
+        >
+          <Text style={s.nextBtnText}>Volgende: Overzicht</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  productPickerButton: {
-    backgroundColor: theme.color.primary,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: theme.space.md,
-  },
-  productPickerButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  productList: {
-    gap: 8,
-  },
-  productItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  section: {
+    backgroundColor: DS.colors.surface,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: DS.radius.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: DS.colors.border,
+    padding: 16,
   },
-  productInfo: {
-    flex: 1,
-    marginRight: 12,
+  sectionTitle: {
+    fontSize: 15, fontWeight: '700', color: DS.colors.textPrimary, marginBottom: 14,
   },
-  productName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 2,
+  field: { marginBottom: 14 },
+  row: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  halfField: { flex: 1 },
+  label: { fontSize: 12, fontWeight: '600', color: DS.colors.textSecondary, marginBottom: 6 },
+  input: {
+    backgroundColor: DS.colors.bg,
+    borderWidth: 1.5, borderColor: DS.colors.border,
+    borderRadius: DS.radius.sm,
+    paddingVertical: 11, paddingHorizontal: 14,
+    fontSize: 15, color: DS.colors.textPrimary,
   },
-  productDescription: {
-    fontSize: 13,
-    color: '#64748b',
+  chips: { flexDirection: 'row', gap: 8 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: DS.radius.full,
+    borderWidth: 1.5, borderColor: DS.colors.border,
+    backgroundColor: DS.colors.surface,
   },
-  productPrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.color.primary,
+  chipActive: { backgroundColor: DS.colors.accent, borderColor: DS.colors.accent },
+  chipText: { fontSize: 13, fontWeight: '600', color: DS.colors.textSecondary },
+  chipTextActive: { color: '#fff' },
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: DS.colors.accent,
+    borderRadius: DS.radius.sm, paddingVertical: 13, marginTop: 4,
   },
+  addBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  lineRow: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingVertical: 12, borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+  },
+  lineName: { fontSize: 14, fontWeight: '600', color: DS.colors.textPrimary },
+  lineMeta: { fontSize: 12, color: DS.colors.textSecondary, marginTop: 2 },
+  lineRight: { alignItems: 'flex-end', gap: 6, paddingLeft: 12 },
+  lineTotal: { fontSize: 14, fontWeight: '700', color: DS.colors.textPrimary },
+  footer: {
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+    backgroundColor: DS.colors.surface,
+  },
+  nextBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: DS.colors.accent, borderRadius: DS.radius.sm, paddingVertical: 14,
+  },
+  nextBtnDisabled: { backgroundColor: DS.colors.textTertiary },
+  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

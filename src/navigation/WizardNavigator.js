@@ -10,9 +10,11 @@ export default function WizardNavigator(){
     <Stack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: '#fff' },
+        headerShadowVisible: false,
         headerTintColor: '#2563EB',
-        headerTitleStyle: { fontWeight: '700', color: '#0C0F1A' },
+        headerTitleStyle: { fontWeight: '700', fontSize: 16, color: '#0C0F1A' },
         headerBackTitleVisible: false,
+        contentStyle: { backgroundColor: '#F7F8FC' },
       }}
     >
       <Stack.Screen name="Klant" component={KlantScreen} options={{ title: 'Klant' }} />

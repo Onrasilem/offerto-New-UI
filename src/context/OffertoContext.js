@@ -16,7 +16,7 @@ const SYNC_ON_CHANGE = true; // Auto-sync to backend on data changes
 export const DOC_STATUS = ['Concept','Verzonden','Bekeken','Getekend/Goedgekeurd','Betaald','Geannuleerd'];
 
 /** AsyncStorage keys for persistence */
-export const STORAGE = { user: 'offerto.user', archive: 'offerto.archive', counters: 'offerto.counters' };
+export const STORAGE = { user: 'offerto.user', archive: 'offerto.archive', counters: 'offerto.counters', company: 'offerto.company', reminderPrefs: 'offerto.reminderPrefs' };
 
 const OffertoContext = createContext(null);
 
@@ -131,9 +131,17 @@ export function OffertoProvider({ children }) {
 
   useEffect(()=>{(async()=>{
     try{
+      // Load persisted company settings and reminder prefs
+      try {
+        const c = await AsyncStorage.getItem(STORAGE.company);
+        if (c) setCompany(prev => ({ ...prev, ...JSON.parse(c) }));
+        const rp = await AsyncStorage.getItem(STORAGE.reminderPrefs);
+        if (rp) setReminderPrefs(prev => ({ ...prev, ...JSON.parse(rp) }));
+      } catch {}
+
       // Initialize API client
       await api.init();
-      
+
       if (USE_BACKEND_API && api.user) {
         // User logged in via backend
         setUser(api.user);
@@ -416,12 +424,12 @@ export function OffertoProvider({ children }) {
    * Refresh products from backend
    */
   const refreshProducts = useCallback(async () => {
-    if (!USE_BACKEND_API || !user) return;
+    if (!USE_BACKEND_API || !user || !api.accessToken) return;
     try {
       const data = await api.getProducts({ active: true });
       setProducts(data.products || []);
     } catch (e) {
-      console.error('Failed to refresh products:', e);
+      console.warn('Failed to refresh products:', e.message);
     }
   }, [user]);
 
@@ -429,14 +437,26 @@ export function OffertoProvider({ children }) {
    * Refresh product categories from backend
    */
   const refreshProductCategories = useCallback(async () => {
-    if (!USE_BACKEND_API || !user) return;
+    if (!USE_BACKEND_API || !user || !api.accessToken) return;
     try {
       const data = await api.getProductCategories();
       setProductCategories(data.categories || []);
     } catch (e) {
-      console.error('Failed to refresh categories:', e);
+      console.warn('Failed to refresh categories:', e.message);
     }
   }, [user]);
+
+  async function saveCompany(patch) {
+    const updated = { ...company, ...patch };
+    setCompany(updated);
+    await AsyncStorage.setItem(STORAGE.company, JSON.stringify(updated));
+  }
+
+  async function saveReminderPrefs(patch) {
+    const updated = { ...reminderPrefs, ...patch };
+    setReminderPrefs(updated);
+    await AsyncStorage.setItem(STORAGE.reminderPrefs, JSON.stringify(updated));
+  }
 
   // Load products on mount if user is logged in
   useEffect(() => {
@@ -449,7 +469,7 @@ export function OffertoProvider({ children }) {
   return (
     <OffertoContext.Provider value={{
       booting, user, isLoading,
-      company, setCompany,
+      company, setCompany, saveCompany,
       klant, setKlant,
       onderdelen, addOnderdeel, removeOnderdeel,
       totals, docType, setDocType, docNummer, setDocNummer, docDatum, setDocDatum,
@@ -458,7 +478,7 @@ export function OffertoProvider({ children }) {
       signUp, signIn, signOutAll,
       regenerateNumberFor,
       statusFilter, setStatusFilter,
-      reminderPrefs, setReminderPrefs,
+      reminderPrefs, setReminderPrefs, saveReminderPrefs,
       signatureData, setSignatureData, isInArchive,
       products, refreshProducts,
       productCategories, refreshProductCategories,

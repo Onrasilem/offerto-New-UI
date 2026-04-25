@@ -1,290 +1,253 @@
-// src/screens/Wizard/OverzichtScreen.js
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Text, View, Platform } from 'react-native';
-import { ScreenWrapper, Card, Row, Button, Checkbox, theme } from '../../components/UI';
-import { ShareButton } from '../../components/ShareButton';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { PeppolSendModal } from '../../components/PeppolSendModal';
+import SignaturePad from '../../components/SignaturePad';
 import { useOfferto } from '../../context/OffertoContext';
 import { currency, addDaysISO } from '../../lib/utils';
 import { buildPdf, sharePdf } from '../../lib/pdf';
-import SignaturePad from '../../components/SignaturePad';
+import { DS } from '../../theme';
 
 export default function OverzichtScreen({ navigation }) {
   const {
-    company,
-    klant,
-    totals,
-    docType,
-    setDocType,
-    docNummer,
-    docDatum,
-    saveToArchive,
-    signRequested,
-    setSignRequested,
-    regenerateNumberFor,
-    updateStatusByNumber,
-    isInArchive,
-    signatureData,
-    setSignatureData,
+    company, klant, totals, docType, setDocType,
+    docNummer, docDatum, saveToArchive, signRequested, setSignRequested,
+    regenerateNumberFor, updateStatusByNumber, isInArchive,
+    signatureData, setSignatureData,
   } = useOfferto();
 
   const { lines, exTotal, btwTotal, incTotal } = totals;
-  const [shareModal] = useState({ open: false, url: '' }); // gereserveerd voor later
-  const [peppolModalVisible, setPeppolModalVisible] = useState(false);
+  const [peppolVisible, setPeppolVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Zorg dat er altijd een documentnummer is
   useEffect(() => {
-    (async () => {
-      if (!docNummer) {
-        await regenerateNumberFor(docType);
-      }
-    })();
+    if (!docNummer) regenerateNumberFor(docType);
   }, []);
 
-  const onSwitchType = async (t) => {
-    setDocType(t);
-    await regenerateNumberFor(t);
-  };
+  const switchType = async (t) => { setDocType(t); await regenerateNumberFor(t); };
 
-  const buildArchivePayload = () => ({
-    type: docType,
-    number: docNummer,
-    date: docDatum,
+  const payload = () => ({
+    type: docType, number: docNummer, date: docDatum,
     totals: { exTotal, btwTotal, incTotal },
-    klantSnapshot: { ...klant },
-    lines,
-    signRequested,
+    klant, lines, signRequested,
     signatureData: signatureData || null,
   });
 
   const ensureSaved = async () => {
-    if (!isInArchive(docNummer)) {
-      const payload = buildArchivePayload();
-      await saveToArchive(payload);
-    }
+    if (!isInArchive(docNummer)) await saveToArchive(payload());
   };
 
-  const navigateToArchive = () => {
+  const goHome = () => {
     const parent = navigation.getParent?.();
-    if (parent) {
-      parent.navigate('Main');
-    } else {
-      navigation.navigate('Main');
-    }
+    (parent || navigation).navigate('Main');
   };
 
-  const save = async () => {
-    const payload = buildArchivePayload();
-    await saveToArchive(payload);
-    Alert.alert('Archief', 'Document is opgeslagen in het archief.', [
-      { text: 'OK', onPress: navigateToArchive },
-    ]);
-  };
-
-  const genPDF = async () => {
-    // Eerst de PDF genereren en tonen
-    const target = await buildPdf({
-      company,
-      klant,
-      lines,
-      exTotal,
-      btwTotal,
-      incTotal,
-      docType,
-      nummer: docNummer || 'DOC-0000',
-      docDatum,
-      signatureData,
-    });
-
-    if (!target) {
-      Alert.alert('PDF', 'Kon geen PDF genereren.');
-      return;
-    }
-
-    await sharePdf(target);
-
-    // Daarna proberen we te saven, maar zonder de gebruiker te blokkeren
+  const handleSave = async () => {
+    setSaving(true);
     try {
-      await ensureSaved();
-    } catch (e) {
-      console.warn('ensureSaved failed after PDF:', e);
-    }
+      await saveToArchive(payload());
+      Alert.alert('Opgeslagen', 'Document staat in je archief.', [{ text: 'OK', onPress: goHome }]);
+    } finally { setSaving(false); }
   };
 
-  const acceptAndSign = async () => {
-    if (!signatureData) {
-      Alert.alert('Handtekening', 'Voeg eerst een handtekening toe.');
-      return;
-    }
+  const handlePdf = async () => {
+    const target = await buildPdf({ company, klant, lines, exTotal, btwTotal, incTotal, docType, nummer: docNummer || 'DOC-0000', docDatum, signatureData });
+    if (!target) return Alert.alert('PDF', 'Kon geen PDF genereren.');
+    await sharePdf(target);
+    try { await ensureSaved(); } catch {}
+  };
 
-    // Vanaf het moment dat er getekend wordt, MOET het in het archief zitten
+  const handleSign = async () => {
+    if (!signatureData) return Alert.alert('Handtekening', 'Voeg eerst een handtekening toe.');
     await ensureSaved();
-
     await updateStatusByNumber(docNummer, 'Getekend/Goedgekeurd');
-    Alert.alert('Bevestigd', 'Status is ingesteld op Getekend/Goedgekeurd.', [
-      { text: 'OK', onPress: navigateToArchive },
-    ]);
+    Alert.alert('Bevestigd', 'Status: Getekend/Goedgekeurd', [{ text: 'OK', onPress: goHome }]);
   };
-
-  const acceptEnabled = !!signatureData;
 
   return (
-    <ScreenWrapper>
-      <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>✅ Overzicht</Text>
-        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
-          Controleer en verstuur uw document
-        </Text>
+    <SafeAreaView style={s.safe} edges={['bottom']}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* Doc type switcher */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Documenttype</Text>
+          <View style={s.typeRow}>
+            {['OFFERTE', 'FACTUUR'].map(t => (
+              <TouchableOpacity key={t} style={[s.typeBtn, docType === t && s.typeBtnActive]} onPress={() => switchType(t)}>
+                {docType === t && <Ionicons name="checkmark" size={14} color="#fff" />}
+                <Text style={[s.typeBtnText, docType === t && s.typeBtnTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={s.metaGrid}>
+            <View style={s.metaItem}>
+              <Text style={s.metaLabel}>NUMMER</Text>
+              <Text style={s.metaValue}>{docNummer || '—'}</Text>
+            </View>
+            <View style={s.metaItem}>
+              <Text style={s.metaLabel}>DATUM</Text>
+              <Text style={s.metaValue}>{docDatum}</Text>
+            </View>
+            {docType === 'OFFERTE' && (
+              <View style={s.metaItem}>
+                <Text style={s.metaLabel}>GELDIG TOT</Text>
+                <Text style={s.metaValue}>{addDaysISO(docDatum, company.offerteGeldigheidDagen || 30)}</Text>
+              </View>
+            )}
+            <View style={s.metaItem}>
+              <Text style={s.metaLabel}>KLANT</Text>
+              <Text style={s.metaValue} numberOfLines={1}>{klant.bedrijfsnaam || klant.contactpersoon || '—'}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Onderdelen */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Onderdelen ({lines.length})</Text>
+          {lines.map((r, i) => (
+            <View key={r.id || i} style={[s.lineRow, i === 0 && { borderTopWidth: 0 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.lineName}>{r.omschrijving}</Text>
+                <Text style={s.lineMeta}>{r.aantal} × {currency(r.eenheidsprijs)} · BTW {r.btwPerc}%</Text>
+              </View>
+              <Text style={s.lineTotal}>{currency(r.inc ?? (r.ex + r.btwA))}</Text>
+            </View>
+          ))}
+          {/* Totalen */}
+          <View style={s.totalsBox}>
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>Excl. BTW</Text>
+              <Text style={s.totalValue}>{currency(exTotal)}</Text>
+            </View>
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>BTW</Text>
+              <Text style={s.totalValue}>{currency(btwTotal)}</Text>
+            </View>
+            <View style={[s.totalRow, s.grandRow]}>
+              <Text style={s.grandLabel}>Totaal</Text>
+              <Text style={s.grandValue}>{currency(incTotal)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Handtekening */}
+        <View style={s.section}>
+          <View style={s.signHeader}>
+            <Text style={s.sectionTitle}>Handtekening</Text>
+            <TouchableOpacity onPress={() => setSignRequested(!signRequested)} style={s.optionalToggle}>
+              <Ionicons name={signRequested ? 'checkbox' : 'square-outline'} size={18} color={DS.colors.accent} />
+              <Text style={s.optionalText}>Vereist</Text>
+            </TouchableOpacity>
+          </View>
+          <SignaturePad
+            value={signatureData}
+            onChange={sig => setSignatureData(sig)}
+            onClear={() => setSignatureData(null)}
+          />
+        </View>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      {/* Action footer */}
+      <View style={s.footer}>
+        <View style={s.footerRow}>
+          <TouchableOpacity style={s.secondaryBtn} onPress={handlePdf}>
+            <Ionicons name="document-outline" size={18} color={DS.colors.accent} />
+            <Text style={s.secondaryBtnText}>PDF</Text>
+          </TouchableOpacity>
+
+          {docType === 'FACTUUR' && (
+            <TouchableOpacity style={s.secondaryBtn} onPress={async () => { await ensureSaved(); setPeppolVisible(true); }}>
+              <Ionicons name="send-outline" size={18} color={DS.colors.accent} />
+              <Text style={s.secondaryBtnText}>Peppol</Text>
+            </TouchableOpacity>
+          )}
+
+          {signatureData ? (
+            <TouchableOpacity style={[s.primaryBtn, { flex: 2 }]} onPress={handleSign}>
+              <Ionicons name="checkmark-circle" size={18} color="#fff" />
+              <Text style={s.primaryBtnText}>Tekenen & opslaan</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[s.primaryBtn, { flex: 2 }, saving && s.btnDisabled]} onPress={handleSave} disabled={saving}>
+              <Ionicons name="save-outline" size={18} color="#fff" />
+              <Text style={s.primaryBtnText}>{saving ? 'Opslaan...' : 'Opslaan'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
-          Documenttype
-        </Text>
-        <Row left="Type" right={docType} />
-        <View style={{ flexDirection: 'row', gap: theme.space.md, marginTop: theme.space.md }}>
-          <View style={{ flex: 1 }}>
-            <Button 
-              title={docType === 'OFFERTE' ? '✓ OFFERTE' : 'OFFERTE'} 
-              onPress={() => onSwitchType('OFFERTE')}
-              variant={docType === 'OFFERTE' ? 'primary' : 'secondary'}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button 
-              title={docType === 'FACTUUR' ? '✓ FACTUUR' : 'FACTUUR'} 
-              onPress={() => onSwitchType('FACTUUR')}
-              variant={docType === 'FACTUUR' ? 'primary' : 'secondary'}
-            />
-          </View>
-        </View>
-        <Row left="Nummer" right={docNummer || '—'} style={{ marginTop: theme.space.md }} />
-        <Row left="Datum" right={docDatum} />
-        {docType === 'OFFERTE' ? (
-          <Row
-            left="Geldig tot"
-            right={addDaysISO(docDatum, company.offerteGeldigheidDagen || 30)}
-          />
-        ) : null}
-        <View style={{ marginTop: theme.space.md }}>
-          <Checkbox
-            checked={signRequested}
-            onToggle={() => setSignRequested(!signRequested)}
-            label="📝 Digitaal tekenen (optioneel)"
-          />
-        </View>
-      </Card>
-
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
-          Onderdelen ({lines.length})
-        </Text>
-        {lines.length === 0 ? (
-          <Text style={{ fontSize: theme.text.body, color: theme.color.textMuted }}>Geen onderdelen.</Text>
-        ) : (
-          lines.map((r) => (
-            <View
-              key={r.id}
-              style={{
-                borderTopWidth: 1,
-                borderTopColor: theme.color.border,
-                paddingVertical: theme.space.md,
-              }}
-            >
-              <Text style={{ fontSize: theme.text.body, fontWeight: '600', color: theme.color.primary, marginBottom: theme.space.xs }}>
-                {r.omschrijving}
-              </Text>
-              <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted }}>
-                {r.aantal} × {currency(r.eenheidsprijs)} • Excl. {currency(r.ex)} • BTW {r.btwPerc}% ({currency(r.btwA)}) • Incl. {currency(r.inc)}
-              </Text>
-            </View>
-          ))
-        )}
-        {company.voorwaarden ? (
-          <View style={{ marginTop: theme.space.md, paddingTop: theme.space.md, borderTopWidth: 1, borderTopColor: theme.color.border }}>
-            <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.sm }}>
-              📋 Opmerkingen / Voorwaarden
-            </Text>
-            <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted }}>{company.voorwaarden}</Text>
-          </View>
-        ) : null}
-      </Card>
-
-      <SignaturePad
-        value={signatureData}
-        onChange={(sig) => setSignatureData(sig)}
-        onClear={() => setSignatureData(null)}
-      />
-
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
-          💰 Totalen
-        </Text>
-        <Row left="Totaal excl." right={currency(exTotal)} />
-        <Row left="BTW" right={currency(btwTotal)} />
-        <Row left="Totaal incl." right={currency(incTotal)} style={{ marginBottom: theme.space.md }} />
-
-        <View style={{ flexDirection: 'row', gap: theme.space.md, marginBottom: theme.space.md }}>
-          <View style={{ flex: 1 }}>
-            <Button title="📁 Opslaan" onPress={save} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button title="📄 PDF" onPress={genPDF} />
-          </View>
-        </View>
-
-        <View style={{ flexDirection: 'row', gap: theme.space.md, marginBottom: theme.space.md }}>
-          <View style={{ flex: 1 }}>
-            <ShareButton 
-              doc={{ type: docType, number: docNummer, date: docDatum, total: incTotal }}
-              company={company}
-              customer={klant}
-              pdfBase64={null}
-              style={{ flex: 1 }}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="✔ Tekenen"
-              onPress={acceptAndSign}
-              variant={acceptEnabled ? 'primary' : 'secondary'}
-            />
-          </View>
-        </View>
-
-        {/* Peppol verzending - alleen voor facturen */}
-        {docType === 'FACTUUR' && (
-          <View style={{ marginTop: theme.space.md }}>
-            <Button
-              title="📨 Verzend via Peppol"
-              onPress={async () => {
-                await ensureSaved();
-                setPeppolModalVisible(true);
-              }}
-              variant="secondary"
-            />
-            <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginTop: theme.space.sm, textAlign: 'center' }}>
-              💡 E-facturatie via Peppol netwerk (verplicht vanaf 2026)
-            </Text>
-          </View>
-        )}
-
-        {!acceptEnabled ? (
-          <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginTop: theme.space.md }}>
-            💡 Tip: voeg eerst een handtekening toe om te kunnen accepteren.
-          </Text>
-        ) : null}
-      </Card>
-
-      <Modal visible={false} transparent animationType="fade" />
-
-      {/* Peppol Modal */}
       <PeppolSendModal
-        visible={peppolModalVisible}
-        onClose={() => setPeppolModalVisible(false)}
+        visible={peppolVisible}
+        onClose={() => setPeppolVisible(false)}
         document={{ id: docNummer, number: docNummer, type: docType }}
         customer={klant}
       />
-    </ScreenWrapper>
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  section: {
+    backgroundColor: DS.colors.surface,
+    marginHorizontal: 16, marginTop: 16,
+    borderRadius: DS.radius.md,
+    borderWidth: 1, borderColor: DS.colors.border,
+    padding: 16,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: DS.colors.textPrimary, marginBottom: 12 },
+  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  typeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 11, borderRadius: DS.radius.sm,
+    borderWidth: 1.5, borderColor: DS.colors.border,
+  },
+  typeBtnActive: { backgroundColor: DS.colors.accent, borderColor: DS.colors.accent },
+  typeBtnText: { fontSize: 14, fontWeight: '700', color: DS.colors.textSecondary },
+  typeBtnTextActive: { color: '#fff' },
+  metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  metaItem: { minWidth: '45%' },
+  metaLabel: { fontSize: 10, fontWeight: '700', color: DS.colors.textTertiary, letterSpacing: 0.6, marginBottom: 2 },
+  metaValue: { fontSize: 14, fontWeight: '600', color: DS.colors.textPrimary },
+  lineRow: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingVertical: 10, borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+  },
+  lineName: { fontSize: 14, fontWeight: '600', color: DS.colors.textPrimary },
+  lineMeta: { fontSize: 12, color: DS.colors.textSecondary, marginTop: 2 },
+  lineTotal: { fontSize: 14, fontWeight: '700', color: DS.colors.textPrimary, paddingLeft: 12 },
+  totalsBox: {
+    marginTop: 12, paddingTop: 12,
+    borderTopWidth: 1.5, borderTopColor: DS.colors.border,
+  },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  totalLabel: { fontSize: 13, color: DS.colors.textSecondary },
+  totalValue: { fontSize: 13, color: DS.colors.textPrimary },
+  grandRow: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: DS.colors.border },
+  grandLabel: { fontSize: 16, fontWeight: '800', color: DS.colors.textPrimary },
+  grandValue: { fontSize: 18, fontWeight: '800', color: DS.colors.accent },
+  signHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  optionalToggle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionalText: { fontSize: 13, color: DS.colors.accent, fontWeight: '600' },
+  footer: {
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+    backgroundColor: DS.colors.surface,
+  },
+  footerRow: { flexDirection: 'row', gap: 10 },
+  primaryBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: DS.colors.accent, borderRadius: DS.radius.sm, paddingVertical: 13,
+  },
+  primaryBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  btnDisabled: { opacity: 0.6 },
+  secondaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 13,
+    borderRadius: DS.radius.sm, borderWidth: 1.5, borderColor: DS.colors.accent,
+  },
+  secondaryBtnText: { color: DS.colors.accent, fontSize: 14, fontWeight: '600' },
+});

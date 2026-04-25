@@ -1,519 +1,355 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
+  View, Text, ScrollView, StyleSheet, TextInput,
+  TouchableOpacity, Alert,
 } from 'react-native';
-import { theme } from '../../components/UI';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import { DS } from '../../theme';
+
+const STORAGE_KEY = 'offerto.emailTemplates';
 
 const DEFAULT_TEMPLATES = {
-  document_sent: {
-    subject: '📄 Document verzonden: {{documentType}} {{documentNumber}}',
+  offerte_verzonden: {
+    label: 'Offerte verzonden',
+    icon: 'document-outline',
+    subject: 'Offerte {{documentNumber}} van {{companyName}}',
     body: `Beste {{customerName}},
 
-Hierbij sturen we je {{documentType}} {{documentNumber}}.
-
-{{#if dueDate}}
-Vervaldatum: {{dueDate}}
-{{/if}}
-
-{{#if structuredReference}}
-Gestructureerde mededeling: {{structuredReference}}
-{{/if}}
+Hierbij ontvangt u onze offerte {{documentNumber}}.
 
 Totaalbedrag: € {{totalAmount}}
+Geldig tot: {{dueDate}}
 
-Het document is toegevoegd als bijlage.
+U vindt de offerte als bijlage bij dit bericht.
+
+Heeft u vragen? Neem gerust contact met ons op.
 
 Met vriendelijke groet,
 {{companyName}}`,
   },
-  follow_up: {
-    subject: '🔔 Herinnering: {{documentType}} {{documentNumber}}',
+  factuur_verzonden: {
+    label: 'Factuur verzonden',
+    icon: 'receipt-outline',
+    subject: 'Factuur {{documentNumber}} van {{companyName}}',
     body: `Beste {{customerName}},
 
-Dit is een vriendelijke herinnering voor {{documentType}} {{documentNumber}}.
-
-{{#if dueDate}}
-Vervaldatum: {{dueDate}}
-{{/if}}
+Hierbij ontvangt u factuur {{documentNumber}}.
 
 Totaalbedrag: € {{totalAmount}}
+Vervaldatum: {{dueDate}}
+Mededeling: {{structuredReference}}
 
-Als je dit document al hebt behandeld, kun je deze email negeren.
-
-Mochten er vragen zijn, neem dan gerust contact met ons op.
+U vindt de factuur als bijlage bij dit bericht.
 
 Met vriendelijke groet,
 {{companyName}}`,
   },
-  payment_reminder: {
-    subject: '⚠️ Betalingsherinnering: Factuur {{documentNumber}}',
+  betaling_herinnering: {
+    label: 'Betalingsherinnering',
+    icon: 'alarm-outline',
+    subject: 'Herinnering: factuur {{documentNumber}} staat open',
     body: `Beste {{customerName}},
 
-We hebben nog geen betaling ontvangen voor factuur {{documentNumber}}.
-
-{{#if dueDate}}
-Vervaldatum was: {{dueDate}}
-{{/if}}
-
-{{#if structuredReference}}
-Gestructureerde mededeling: {{structuredReference}}
-{{/if}}
+Dit is een vriendelijke herinnering voor factuur {{documentNumber}}.
 
 Openstaand bedrag: € {{openAmount}}
+Vervaldatum: {{dueDate}}
+Mededeling: {{structuredReference}}
 
-Gelieve dit bedrag zo spoedig mogelijk over te maken.
-
-Bij vragen over deze factuur kun je contact met ons opnemen.
+Heeft u dit bedrag al overgemaakt? Dan kunt u deze e-mail negeren.
 
 Met vriendelijke groet,
 {{companyName}}`,
   },
-  payment_received: {
-    subject: '✅ Betaling ontvangen voor Factuur {{documentNumber}}',
+  betaling_ontvangen: {
+    label: 'Betaling ontvangen',
+    icon: 'checkmark-circle-outline',
+    subject: 'Betaling ontvangen — factuur {{documentNumber}}',
     body: `Beste {{customerName}},
 
-We hebben je betaling in goede orde ontvangen!
+We hebben uw betaling van € {{amount}} voor factuur {{documentNumber}} in goede orde ontvangen.
 
-Factuur: {{documentNumber}}
-Bedrag: € {{amount}}
-Datum: {{paymentDate}}
-
-Hartelijk dank voor je betaling.
+Hartelijk dank!
 
 Met vriendelijke groet,
 {{companyName}}`,
   },
 };
 
-export default function EmailTemplatesScreen({ navigation }) {
+const VARIABLES = [
+  '{{customerName}}', '{{companyName}}', '{{documentNumber}}',
+  '{{totalAmount}}', '{{openAmount}}', '{{amount}}',
+  '{{dueDate}}', '{{structuredReference}}',
+];
+
+export default function EmailTemplatesScreen({ navigation, route }) {
+  const initialKey = route?.params?.type === 'factuur' ? 'factuur_verzonden' : 'offerte_verzonden';
   const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
-  const [selectedTemplate, setSelectedTemplate] = useState('document_sent');
+  const [selected, setSelected] = useState(initialKey);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const currentTemplate = templates[selectedTemplate];
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) setTemplates(prev => ({ ...prev, ...JSON.parse(raw) }));
+      } catch {}
+    })();
+  }, []);
 
-  const handleSave = () => {
-    // In real app: save to backend/context
-    Alert.alert('Succes', 'Template opgeslagen');
-    setEditing(false);
+  const current = templates[selected];
+
+  const update = (field, value) => {
+    setTemplates(prev => ({
+      ...prev,
+      [selected]: { ...prev[selected], [field]: value },
+    }));
   };
 
-  const handleReset = () => {
-    Alert.alert(
-      'Template herstellen?',
-      'Weet je zeker dat je deze template wilt herstellen naar de standaard?',
-      [
-        { text: 'Annuleer', style: 'cancel' },
-        {
-          text: 'Herstel',
-          style: 'destructive',
-          onPress: () => {
-            setTemplates({
-              ...templates,
-              [selectedTemplate]: DEFAULT_TEMPLATES[selectedTemplate],
-            });
-            Alert.alert('Succes', 'Template hersteld naar standaard');
-          },
-        },
-      ]
-    );
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+      setEditing(false);
+      Alert.alert('Opgeslagen', 'Template is bijgewerkt.');
+    } catch {
+      Alert.alert('Fout', 'Kon niet opslaan.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const updateTemplate = (field, value) => {
-    setTemplates({
-      ...templates,
-      [selectedTemplate]: {
-        ...currentTemplate,
-        [field]: value,
-      },
+  const handleCancel = () => {
+    // Reload from storage to discard changes
+    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
+      const saved = raw ? JSON.parse(raw) : {};
+      setTemplates({ ...DEFAULT_TEMPLATES, ...saved });
+      setEditing(false);
     });
   };
 
-  const templateOptions = [
-    { key: 'document_sent', label: '📄 Document verzonden', icon: '📄' },
-    { key: 'follow_up', label: '🔔 Follow-up', icon: '🔔' },
-    { key: 'payment_reminder', label: '⚠️ Betalingsherinnering', icon: '⚠️' },
-    { key: 'payment_received', label: '✅ Betaling ontvangen', icon: '✅' },
-  ];
+  const handleReset = () => {
+    Alert.alert('Template herstellen?', 'Dit verwijdert je aanpassingen voor deze template.', [
+      { text: 'Annuleren', style: 'cancel' },
+      {
+        text: 'Herstellen', style: 'destructive',
+        onPress: async () => {
+          const reset = { ...templates, [selected]: DEFAULT_TEMPLATES[selected] };
+          setTemplates(reset);
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reset));
+        },
+      },
+    ]);
+  };
 
-  const variables = [
-    '{{customerName}}',
-    '{{companyName}}',
-    '{{documentType}}',
-    '{{documentNumber}}',
-    '{{totalAmount}}',
-    '{{openAmount}}',
-    '{{dueDate}}',
-    '{{structuredReference}}',
-    '{{paymentDate}}',
-    '{{amount}}',
-  ];
+  const previewText = (text) =>
+    text
+      .replace(/{{customerName}}/g, 'Jan Janssen')
+      .replace(/{{companyName}}/g, 'Jouw Bedrijf')
+      .replace(/{{documentNumber}}/g, selected.startsWith('offerte') ? 'Q-2025-0001' : 'INV-2025-0001')
+      .replace(/{{totalAmount}}/g, '1.250,00')
+      .replace(/{{openAmount}}/g, '1.250,00')
+      .replace(/{{amount}}/g, '1.250,00')
+      .replace(/{{dueDate}}/g, '31-05-2025')
+      .replace(/{{structuredReference}}/g, '+++123/4567/89012+++');
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>📧 Email Templates</Text>
-        <Text style={styles.subtitle}>Personaliseer je email berichten</Text>
-      </View>
+    <SafeAreaView style={s.safe} edges={['bottom']}>
 
-      {/* Template Selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templateSelector}>
-        {templateOptions.map(opt => (
+      {/* Template tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabBar} contentContainerStyle={s.tabContent}>
+        {Object.entries(DEFAULT_TEMPLATES).map(([key, tpl]) => (
           <TouchableOpacity
-            key={opt.key}
-            style={[
-              styles.templateTab,
-              selectedTemplate === opt.key && styles.templateTabActive,
-            ]}
-            onPress={() => {
-              setSelectedTemplate(opt.key);
-              setEditing(false);
-            }}
+            key={key}
+            style={[s.tab, selected === key && s.tabActive]}
+            onPress={() => { setSelected(key); setEditing(false); }}
           >
-            <Text style={styles.templateIcon}>{opt.icon}</Text>
-            <Text
-              style={[
-                styles.templateLabel,
-                selectedTemplate === opt.key && styles.templateLabelActive,
-              ]}
-            >
-              {opt.label}
-            </Text>
+            <Ionicons name={tpl.icon} size={16} color={selected === key ? DS.colors.accent : DS.colors.textTertiary} />
+            <Text style={[s.tabText, selected === key && s.tabTextActive]}>{tpl.label}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      <ScrollView style={styles.content}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
         {/* Subject */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Onderwerp</Text>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Onderwerp</Text>
           <TextInput
-            style={[styles.input, !editing && styles.inputDisabled]}
-            value={currentTemplate.subject}
-            onChangeText={(text) => updateTemplate('subject', text)}
+            style={[s.input, !editing && s.inputReadonly]}
+            value={current.subject}
+            onChangeText={v => update('subject', v)}
             editable={editing}
-            placeholder="Email onderwerp..."
+            placeholder="E-mail onderwerp..."
+            placeholderTextColor={DS.colors.textTertiary}
           />
         </View>
 
         {/* Body */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bericht</Text>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Bericht</Text>
           <TextInput
-            style={[styles.textArea, !editing && styles.inputDisabled]}
-            value={currentTemplate.body}
-            onChangeText={(text) => updateTemplate('body', text)}
+            style={[s.textarea, !editing && s.inputReadonly]}
+            value={current.body}
+            onChangeText={v => update('body', v)}
             editable={editing}
             multiline
-            numberOfLines={15}
-            placeholder="Email bericht..."
             textAlignVertical="top"
+            placeholder="E-mail bericht..."
+            placeholderTextColor={DS.colors.textTertiary}
           />
         </View>
 
-        {/* Variables Help */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📝 Beschikbare variabelen</Text>
-          <Text style={styles.helpText}>
-            Je kunt deze variabelen gebruiken in je templates. Ze worden automatisch vervangen:
-          </Text>
-          <View style={styles.variablesGrid}>
-            {variables.map((variable, idx) => (
-              <View key={idx} style={styles.variableChip}>
-                <Text style={styles.variableText}>{variable}</Text>
+        {/* Variables */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Beschikbare variabelen</Text>
+          <Text style={s.hint}>Tik op een variabele om te kopiëren</Text>
+          <View style={s.chips}>
+            {VARIABLES.map(v => (
+              <View key={v} style={s.chip}>
+                <Text style={s.chipText}>{v}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Conditional Logic Help */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔧 Conditionele logica</Text>
-          <Text style={styles.helpText}>
-            Je kunt conditionele blokken gebruiken:
-          </Text>
-          <View style={styles.codeBlock}>
-            <Text style={styles.codeText}>
-              {'{{#if dueDate}}\n'}
-              {'  Vervaldatum: {{dueDate}}\n'}
-              {'{{/if}}'}
-            </Text>
+        {/* Preview */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Voorbeeld</Text>
+          <View style={s.preview}>
+            <Text style={s.previewLabel}>ONDERWERP</Text>
+            <Text style={s.previewSubject}>{previewText(current.subject)}</Text>
+            <View style={s.divider} />
+            <Text style={s.previewLabel}>BERICHT</Text>
+            <Text style={s.previewBody}>{previewText(current.body)}</Text>
           </View>
         </View>
 
-        {/* Preview */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👁️ Voorbeeld</Text>
-          <View style={styles.previewBox}>
-            <Text style={styles.previewLabel}>Onderwerp:</Text>
-            <Text style={styles.previewSubject}>
-              {currentTemplate.subject
-                .replace('{{documentType}}', 'Factuur')
-                .replace('{{documentNumber}}', 'FAC-2025-001')
-                .replace('{{customerName}}', 'Acme Corp')}
-            </Text>
-            <Text style={styles.previewLabel}>Bericht:</Text>
-            <Text style={styles.previewBody}>
-              {currentTemplate.body
-                .replace(/{{customerName}}/g, 'Acme Corp')
-                .replace(/{{companyName}}/g, 'Jouw Bedrijf')
-                .replace(/{{documentType}}/g, 'Factuur')
-                .replace(/{{documentNumber}}/g, 'FAC-2025-001')
-                .replace(/{{totalAmount}}/g, '1.250,00')
-                .replace(/{{openAmount}}/g, '1.250,00')
-                .replace(/{{dueDate}}/g, '31-12-2025')
-                .replace(/{{structuredReference}}/g, '+++123/4567/89012+++')
-                .replace(/{{#if.*?}}\n?/g, '')
-                .replace(/{{\/if}}/g, '')}
-            </Text>
-          </View>
-        </View>
+        <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        {!editing ? (
-          <>
-            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-              <Text style={styles.resetButtonText}>🔄 Herstel Standaard</Text>
+      {/* Footer actions */}
+      <View style={s.footer}>
+        {editing ? (
+          <View style={s.footerRow}>
+            <TouchableOpacity style={s.cancelBtn} onPress={handleCancel}>
+              <Text style={s.cancelBtnText}>Annuleren</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.editButton} onPress={() => setEditing(true)}>
-              <Text style={styles.editButtonText}>✏️ Bewerken</Text>
+            <TouchableOpacity style={[s.saveBtn, saving && s.saveBtnDisabled]} onPress={handleSave} disabled={saving}>
+              <Ionicons name="checkmark" size={18} color="#fff" />
+              <Text style={s.saveBtnText}>{saving ? 'Opslaan...' : 'Opslaan'}</Text>
             </TouchableOpacity>
-          </>
+          </View>
         ) : (
-          <>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => {
-                setTemplates({ ...DEFAULT_TEMPLATES });
-                setEditing(false);
-              }}
-            >
-              <Text style={styles.cancelButtonText}>Annuleer</Text>
+          <View style={s.footerRow}>
+            <TouchableOpacity style={s.resetBtn} onPress={handleReset}>
+              <Ionicons name="refresh-outline" size={16} color={DS.colors.textSecondary} />
+              <Text style={s.resetBtnText}>Herstellen</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>💾 Opslaan</Text>
+            <TouchableOpacity style={s.editBtn} onPress={() => setEditing(true)}>
+              <Ionicons name="pencil-outline" size={16} color="#fff" />
+              <Text style={s.editBtnText}>Bewerken</Text>
             </TouchableOpacity>
-          </>
+          </View>
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  tabBar: {
+    backgroundColor: DS.colors.surface,
+    borderBottomWidth: 1, borderBottomColor: DS.colors.borderLight,
+    maxHeight: 56,
   },
-  header: {
-    backgroundColor: theme.primary,
-    padding: 16,
-    paddingTop: 16,
+  tabContent: { paddingHorizontal: 12, alignItems: 'center', gap: 4 },
+  tab: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 16,
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  templateSelector: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  templateTab: {
-    padding: 16,
-    alignItems: 'center',
-    minWidth: 120,
-  },
-  templateTabActive: {
-    borderBottomWidth: 3,
-    borderBottomColor: theme.primary,
-  },
-  templateIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  templateLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  templateLabelActive: {
-    color: theme.primary,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
+  tabActive: { borderBottomColor: DS.colors.accent },
+  tabText: { fontSize: 13, fontWeight: '600', color: DS.colors.textTertiary },
+  tabTextActive: { color: DS.colors.accent },
   section: {
-    margin: 16,
+    backgroundColor: DS.colors.surface,
+    marginHorizontal: 16, marginTop: 16,
+    borderRadius: DS.radius.md,
+    borderWidth: 1, borderColor: DS.colors.border,
     padding: 16,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 12,
-  },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: DS.colors.textPrimary, marginBottom: 10 },
+  hint: { fontSize: 12, color: DS.colors.textTertiary, marginBottom: 10, marginTop: -6 },
   input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: 'white',
+    backgroundColor: DS.colors.bg,
+    borderWidth: 1.5, borderColor: DS.colors.border,
+    borderRadius: DS.radius.sm,
+    paddingVertical: 11, paddingHorizontal: 14,
+    fontSize: 14, color: DS.colors.textPrimary,
   },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    backgroundColor: 'white',
-    minHeight: 250,
-    fontFamily: 'monospace',
+  textarea: {
+    backgroundColor: DS.colors.bg,
+    borderWidth: 1.5, borderColor: DS.colors.border,
+    borderRadius: DS.radius.sm,
+    paddingVertical: 11, paddingHorizontal: 14,
+    fontSize: 14, color: DS.colors.textPrimary,
+    minHeight: 220,
   },
-  inputDisabled: {
-    backgroundColor: '#f8fafc',
-    color: '#64748b',
+  inputReadonly: { backgroundColor: DS.colors.borderLight, color: DS.colors.textSecondary },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: DS.colors.accentSoft,
+    borderRadius: DS.radius.full,
+    borderWidth: 1, borderColor: DS.colors.accent + '33',
   },
-  helpText: {
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  variablesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  variableChip: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  variableText: {
-    fontSize: 11,
-    fontFamily: 'monospace',
-    color: '#475569',
-  },
-  codeBlock: {
-    backgroundColor: '#1e293b',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  codeText: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: '#e2e8f0',
-    lineHeight: 18,
-  },
-  previewBox: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  chipText: { fontSize: 11, fontWeight: '600', color: DS.colors.accent },
+  preview: {
+    backgroundColor: DS.colors.bg,
+    borderRadius: DS.radius.sm, padding: 14,
+    borderWidth: 1, borderColor: DS.colors.borderLight,
   },
   previewLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    marginTop: 8,
-    marginBottom: 4,
+    fontSize: 10, fontWeight: '700', color: DS.colors.textTertiary,
+    letterSpacing: 0.6, marginBottom: 4,
   },
-  previewSubject: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 8,
+  previewSubject: { fontSize: 14, fontWeight: '700', color: DS.colors.textPrimary, marginBottom: 4 },
+  divider: { height: 1, backgroundColor: DS.colors.borderLight, marginVertical: 12 },
+  previewBody: { fontSize: 13, color: DS.colors.textSecondary, lineHeight: 20 },
+  footer: {
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+    backgroundColor: DS.colors.surface,
   },
-  previewBody: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 20,
+  footerRow: { flexDirection: 'row', gap: 10 },
+  cancelBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 13, borderRadius: DS.radius.sm,
+    borderWidth: 1.5, borderColor: DS.colors.border,
   },
-  actions: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    gap: 12,
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: DS.colors.textSecondary },
+  saveBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 13, borderRadius: DS.radius.sm,
+    backgroundColor: DS.colors.accent,
   },
-  editButton: {
-    flex: 1,
-    backgroundColor: theme.primary,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+  resetBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 13, borderRadius: DS.radius.sm,
+    borderWidth: 1.5, borderColor: DS.colors.border,
   },
-  editButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  resetBtnText: { fontSize: 15, fontWeight: '600', color: DS.colors.textSecondary },
+  editBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 13, borderRadius: DS.radius.sm,
+    backgroundColor: DS.colors.accent,
   },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#10b981',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#e2e8f0',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#475569',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  resetButton: {
-    flex: 1,
-    backgroundColor: '#f59e0b',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  resetButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  editBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
 });

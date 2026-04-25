@@ -194,6 +194,13 @@ class OffertoAPI {
     }
   }
 
+  async changePassword(current, newPassword) {
+    return this.request('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ current, newPassword }),
+    });
+  }
+
   // === Customer Methods ===
 
   async createCustomer(customer) {

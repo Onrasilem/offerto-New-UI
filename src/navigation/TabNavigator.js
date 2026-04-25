@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/Core/DashboardScreen';
 import KlantenScreen from '../screens/Core/KlantenScreen';
 import ArchiefScreen from '../screens/Core/ArchiefScreen';
@@ -8,10 +9,10 @@ import InstellingenScreen from '../screens/Core/InstellingenScreen';
 import { DS } from '../theme';
 
 const TABS = [
-  { key: 'Dashboard', label: 'Overzicht', icon: '🏠' },
-  { key: 'Klanten',   label: 'Klanten',   icon: '👥' },
-  { key: 'Archief',   label: 'Documenten', icon: '📄' },
-  { key: 'Instellingen', label: 'Instellingen', icon: '⚙️' },
+  { key: 'Dashboard',    label: 'Overzicht',    icon: 'home',          iconOutline: 'home-outline' },
+  { key: 'Klanten',      label: 'Klanten',      icon: 'people',        iconOutline: 'people-outline' },
+  { key: 'Archief',      label: 'Documenten',   icon: 'document-text', iconOutline: 'document-text-outline' },
+  { key: 'Instellingen', label: 'Instellingen', icon: 'settings',      iconOutline: 'settings-outline' },
 ];
 
 const SCREENS = {
@@ -27,17 +28,10 @@ export default function TabNavigator({ navigation }) {
 
   const ActiveScreen = SCREENS[activeTab];
 
-  // Build a fake navigation object that supports push/navigate
-  // For navigating to stack screens, delegate to parent navigation
   const tabNavigation = {
     navigate: (screen, params) => {
-      // If screen is a tab, switch tab
-      if (SCREENS[screen]) {
-        setActiveTab(screen);
-      } else {
-        // Push to parent stack navigator
-        navigation.navigate(screen, params);
-      }
+      if (SCREENS[screen]) setActiveTab(screen);
+      else navigation.navigate(screen, params);
     },
     goBack: () => navigation.goBack(),
     push: (screen, params) => navigation.navigate(screen, params),
@@ -52,12 +46,10 @@ export default function TabNavigator({ navigation }) {
 
   return (
     <View style={ts.root}>
-      {/* Active screen */}
       <View style={ts.screenContainer}>
         <ActiveScreen navigation={tabNavigation} />
       </View>
 
-      {/* Tab bar */}
       <View style={[ts.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         {TABS.map(tab => {
           const active = activeTab === tab.key;
@@ -68,7 +60,11 @@ export default function TabNavigator({ navigation }) {
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.7}
             >
-              <Text style={[ts.tabIcon, active && ts.tabIconActive]}>{tab.icon}</Text>
+              <Ionicons
+                name={active ? tab.icon : tab.iconOutline}
+                size={24}
+                color={active ? DS.colors.accent : DS.colors.textTertiary}
+              />
               <Text style={[ts.tabLabel, active && ts.tabLabelActive]}>{tab.label}</Text>
             </TouchableOpacity>
           );
@@ -84,17 +80,15 @@ const ts = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: DS.colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: DS.colors.borderLight,
-    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: DS.colors.border,
+    paddingTop: 8,
   },
   tabItem: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3,
   },
-  tabIcon: { fontSize: 22, opacity: 0.35 },
-  tabIconActive: { opacity: 1 },
   tabLabel: {
-    fontSize: 10, fontWeight: '400', color: DS.colors.textTertiary,
+    fontSize: 10, fontWeight: '500', color: DS.colors.textTertiary,
   },
-  tabLabelActive: { color: DS.colors.accent, fontWeight: '600' },
+  tabLabelActive: { color: DS.colors.accent, fontWeight: '700' },
 });

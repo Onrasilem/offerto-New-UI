@@ -1,165 +1,135 @@
-import React, { useEffect } from 'react';
-import { View, Text, Alert, ActivityIndicator } from 'react-native';
-import { useHeaderHeight } from '@react-navigation/elements';
-import { ScreenWrapper, Card, Field, TextBox, Button, theme } from '../../components/UI';
-import { ValidatedInput } from '../../components/ValidatedInput';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useOfferto } from '../../context/OffertoContext';
-import { useFormValidation } from '../../lib/useFormValidation';
 import { showErrorToast } from '../../lib/toast';
+import { DS } from '../../theme';
 
 export default function KlantScreen({ navigation }) {
-  const headerHeight = useHeaderHeight();
   const { klant, setKlant } = useOfferto();
 
-  const form = useFormValidation(
-    {
-      bedrijfsnaam: klant.bedrijfsnaam || '',
-      contactpersoon: klant.contactpersoon || '',
-      email: klant.email || '',
-      telefoon: klant.telefoon || '',
-      adres: klant.adres || '',
-      btwNummer: klant.btwNummer || '',
-      peppolId: klant.peppolId || '',
-    },
-    async (values) => {
-      const bedrijfsnaam = (values.bedrijfsnaam || '').trim();
-      const contactpersoon = (values.contactpersoon || '').trim();
-      const email = (values.email || '').trim();
-      const telefoon = (values.telefoon || '').trim();
-
-      const heeftNaam = bedrijfsnaam.length > 0 || contactpersoon.length > 0;
-      const heeftContact = email.length > 0 || telefoon.length > 0;
-
-      if (!heeftNaam) {
-        showErrorToast('Bedrijfsnaam of contactpersoon is verplicht');
-        return;
-      }
-      if (!heeftContact) {
-        showErrorToast('E-mail of telefoon is verplicht');
-        return;
-      }
-
-      setKlant(values);
-      navigation.navigate('Onderdelen');
-    }
-  );
+  const [form, setForm] = useState({
+    bedrijfsnaam: klant.bedrijfsnaam || '',
+    contactpersoon: klant.contactpersoon || '',
+    email: klant.email || '',
+    telefoon: klant.telefoon || '',
+    adres: klant.adres || '',
+    btwNummer: klant.btwNummer || '',
+  });
 
   useEffect(() => {
-    form.setValues({
+    setForm({
       bedrijfsnaam: klant.bedrijfsnaam || '',
       contactpersoon: klant.contactpersoon || '',
       email: klant.email || '',
-      peppolId: klant.peppolId || '',
       telefoon: klant.telefoon || '',
       adres: klant.adres || '',
       btwNummer: klant.btwNummer || '',
     });
   }, [klant]);
 
+  const change = (patch) => setForm(prev => ({ ...prev, ...patch }));
+
+  const submit = () => {
+    const naam = form.bedrijfsnaam.trim() || form.contactpersoon.trim();
+    const contact = form.email.trim() || form.telefoon.trim();
+    if (!naam) return showErrorToast('Bedrijfsnaam of contactpersoon is verplicht');
+    if (!contact) return showErrorToast('E-mail of telefoon is verplicht');
+    setKlant(form);
+    navigation.navigate('Onderdelen');
+  };
+
   return (
-    <ScreenWrapper headerOffset={headerHeight}>
-      <View style={{ marginBottom: theme.space.md }}>
-        <Text style={{ fontSize: theme.text.h2, color: theme.color.primary }}>👤 Klantgegevens</Text>
-        <Text style={{ fontSize: theme.text.small, color: theme.color.textMuted, marginTop: theme.space.xs }}>
-          Voeg de klantinformatie in
-        </Text>
-      </View>
+    <SafeAreaView style={s.safe} edges={['bottom']}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <ValidatedInput
-          label="Bedrijfsnaam"
-          placeholder="Bijv. Brasserie De Hoek"
-          value={form.values.bedrijfsnaam}
-          onChangeText={(v) => form.handleChange('bedrijfsnaam', v)}
-          onBlur={() => form.handleBlur('bedrijfsnaam')}
-          error={form.errors.bedrijfsnaam}
-          touched={form.touched.bedrijfsnaam}
-        />
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Klantgegevens</Text>
 
-        <ValidatedInput
-          label="Contactpersoon"
-          placeholder="Naam van de contactpersoon"
-          value={form.values.contactpersoon}
-          onChangeText={(v) => form.handleChange('contactpersoon', v)}
-          onBlur={() => form.handleBlur('contactpersoon')}
-          error={form.errors.contactpersoon}
-          touched={form.touched.contactpersoon}
-        />
-
-        <View style={{flexDirection:'row', gap: theme.space.md}}>
-          <View style={{flex:1}}>
-            <ValidatedInput
-              label="E-mail"
-              placeholder="klant@bedrijf.be"
-              keyboardType="email-address"
-              value={form.values.email}
-              onChangeText={(v) => form.handleChange('email', v)}
-              onBlur={() => form.handleBlur('email')}
-              error={form.errors.email}
-              touched={form.touched.email}
-            />
+          <View style={s.field}>
+            <Text style={s.label}>Bedrijfsnaam</Text>
+            <TextInput style={s.input} value={form.bedrijfsnaam} onChangeText={v => change({ bedrijfsnaam: v })}
+              placeholder="Bijv. Brasserie De Hoek" placeholderTextColor={DS.colors.textTertiary} />
           </View>
-          <View style={{flex:1}}>
-            <ValidatedInput
-              label="Telefoon"
-              placeholder="0470 12 34 56"
-              keyboardType="phone-pad"
-              value={form.values.telefoon}
-              onChangeText={(v) => form.handleChange('telefoon', v)}
-              onBlur={() => form.handleBlur('telefoon')}
-              error={form.errors.telefoon}
-              touched={form.touched.telefoon}
-            />
+
+          <View style={s.field}>
+            <Text style={s.label}>Contactpersoon</Text>
+            <TextInput style={s.input} value={form.contactpersoon} onChangeText={v => change({ contactpersoon: v })}
+              placeholder="Naam contactpersoon" placeholderTextColor={DS.colors.textTertiary} />
+          </View>
+
+          <View style={s.row}>
+            <View style={s.half}>
+              <Text style={s.label}>E-mail</Text>
+              <TextInput style={s.input} value={form.email} onChangeText={v => change({ email: v })}
+                placeholder="klant@bedrijf.be" placeholderTextColor={DS.colors.textTertiary}
+                keyboardType="email-address" autoCapitalize="none" />
+            </View>
+            <View style={s.half}>
+              <Text style={s.label}>Telefoon</Text>
+              <TextInput style={s.input} value={form.telefoon} onChangeText={v => change({ telefoon: v })}
+                placeholder="0470 12 34 56" placeholderTextColor={DS.colors.textTertiary}
+                keyboardType="phone-pad" />
+            </View>
+          </View>
+
+          <View style={s.field}>
+            <Text style={s.label}>Adres</Text>
+            <TextInput style={s.input} value={form.adres} onChangeText={v => change({ adres: v })}
+              placeholder="Straat + nr, postcode, gemeente" placeholderTextColor={DS.colors.textTertiary} />
+          </View>
+
+          <View style={[s.field, { marginBottom: 0 }]}>
+            <Text style={s.label}>BTW-nummer</Text>
+            <TextInput style={s.input} value={form.btwNummer} onChangeText={v => change({ btwNummer: v })}
+              placeholder="BE0123456789" placeholderTextColor={DS.colors.textTertiary}
+              autoCapitalize="characters" />
           </View>
         </View>
 
-        <Field label="Adres">
-          <TextBox
-            value={form.values.adres}
-            onChangeText={(v) => form.handleChange('adres', v)}
-            placeholder="Straat + nr, postcode, gemeente"
-          />
-        </Field>
+        <View style={{ height: 24 }} />
+      </ScrollView>
 
-        <ValidatedInput
-          label="BTW-nummer"
-          placeholder="BE0123456789"
-          value={form.values.btwNummer}
-          onChangeText={(v) => form.handleChange('btwNummer', v)}
-          onBlur={() => form.handleBlur('btwNummer')}
-          error={form.errors.btwNummer}
-          touched={form.touched.btwNummer}
-        />
-      </Card>
-
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.h3, color: theme.color.primary, marginBottom: theme.space.md }}>
-          📨 Peppol E-facturatie (Optioneel)
-        </Text>
-        
-        <Field label="Peppol ID">
-          <TextBox
-            value={form.values.peppolId || ''}
-            onChangeText={(v) => form.handleChange('peppolId', v)}
-            placeholder="BE0123456789"
-          />
-        </Field>
-
-        <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginTop: theme.space.sm }}>
-          💡 Het Peppol ID is meestal het BTW-nummer van de klant. Wordt gebruikt voor e-facturatie.
-        </Text>
-      </Card>
-
-      <Card style={{ marginBottom: theme.space.lg }}>
-        <Text style={{ fontSize: theme.text.xsmall, color: theme.color.textMuted, marginBottom: theme.space.md }}>
-          ℹ️ Minstens bedrijfsnaam of contactpersoon, én minstens e-mail of telefoon zijn verplicht.
-        </Text>
-
-        <Button
-          title="Volgende: Onderdelen"
-          onPress={form.handleSubmit}
-        />
-      </Card>
-    </ScreenWrapper>
+      <View style={s.footer}>
+        <TouchableOpacity style={s.nextBtn} onPress={submit}>
+          <Text style={s.nextBtnText}>Volgende: Onderdelen</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: DS.colors.bg },
+  section: {
+    backgroundColor: DS.colors.surface,
+    marginHorizontal: 16, marginTop: 16,
+    borderRadius: DS.radius.md,
+    borderWidth: 1, borderColor: DS.colors.border,
+    padding: 16,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: DS.colors.textPrimary, marginBottom: 14 },
+  field: { marginBottom: 14 },
+  row: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  half: { flex: 1 },
+  label: { fontSize: 12, fontWeight: '600', color: DS.colors.textSecondary, marginBottom: 6 },
+  input: {
+    backgroundColor: DS.colors.bg,
+    borderWidth: 1.5, borderColor: DS.colors.border,
+    borderRadius: DS.radius.sm,
+    paddingVertical: 11, paddingHorizontal: 14,
+    fontSize: 15, color: DS.colors.textPrimary,
+  },
+  footer: {
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+    backgroundColor: DS.colors.surface,
+  },
+  nextBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: DS.colors.accent, borderRadius: DS.radius.sm, paddingVertical: 14,
+  },
+  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+});
