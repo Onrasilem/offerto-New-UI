@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useOfferto } from '../../context/OffertoContext';
 import { DS } from '../../theme';
 import { Avatar } from '../../components/DesignSystem';
@@ -42,11 +43,43 @@ const SECTIONS = [
 ];
 
 export default function InstellingenScreen({ navigation }) {
-  const { user, company, signOutAll: signOut } = useOfferto();
+  const { user, company, saveCompany, signOutAll: signOut } = useOfferto();
+  const [logoLoading, setLogoLoading] = useState(false);
 
   const companyName = company?.bedrijfsnaam || user?.name || 'Mijn bedrijf';
   const companyEmail = user?.email || '';
   const btwNr = company?.btwNummer || '';
+
+  async function handleLogoUpload() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Geen toegang', 'Geef toegang tot je fotobibliotheek om een logo te kiezen.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [4, 1],
+      quality: 0.4,
+      base64: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    setLogoLoading(true);
+    try {
+      const asset = result.assets[0];
+      const logoUrl = `data:image/jpeg;base64,${asset.base64}`;
+      await saveCompany({ logoUrl });
+    } finally {
+      setLogoLoading(false);
+    }
+  }
+
+  async function handleLogoRemove() {
+    Alert.alert('Logo verwijderen', 'Wil je het logo verwijderen?', [
+      { text: 'Annuleren', style: 'cancel' },
+      { text: 'Verwijderen', style: 'destructive', onPress: () => saveCompany({ logoUrl: '' }) },
+    ]);
+  }
 
   function handleSignOut() {
     Alert.alert('Uitloggen', 'Ben je zeker dat je wilt uitloggen?', [
@@ -84,6 +117,39 @@ export default function InstellingenScreen({ navigation }) {
               <Ionicons name="pencil-outline" size={14} color={DS.colors.accent} />
               <Text style={s.editText}>Bewerk</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Logo section */}
+          <View style={s.logoSection}>
+            <Text style={s.logoLabel}>BEDRIJFSLOGO</Text>
+            <View style={s.logoRow}>
+              {company?.logoUrl ? (
+                <View style={s.logoPreviewWrap}>
+                  <Image source={{ uri: company.logoUrl }} style={s.logoPreview} resizeMode="contain" />
+                </View>
+              ) : (
+                <View style={s.logoEmpty}>
+                  <Ionicons name="image-outline" size={22} color={DS.colors.textTertiary} />
+                  <Text style={s.logoEmptyText}>Geen logo</Text>
+                </View>
+              )}
+              <View style={s.logoBtns}>
+                <TouchableOpacity style={s.logoUploadBtn} onPress={handleLogoUpload} disabled={logoLoading}>
+                  {logoLoading
+                    ? <ActivityIndicator size="small" color={DS.colors.accent} />
+                    : <>
+                        <Ionicons name="cloud-upload-outline" size={15} color={DS.colors.accent} />
+                        <Text style={s.logoUploadText}>{company?.logoUrl ? 'Wijzig' : 'Upload logo'}</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+                {!!company?.logoUrl && (
+                  <TouchableOpacity style={s.logoRemoveBtn} onPress={handleLogoRemove}>
+                    <Ionicons name="trash-outline" size={15} color={DS.colors.danger} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
           </View>
         </View>
 
@@ -146,6 +212,40 @@ const s = StyleSheet.create({
   profileBtw: { fontSize: 12, color: DS.colors.textTertiary, marginTop: 2 },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   editText: { fontSize: 13, color: DS.colors.accent, fontWeight: '600' },
+  logoSection: {
+    marginTop: 14, paddingTop: 14,
+    borderTopWidth: 1, borderTopColor: DS.colors.borderLight,
+  },
+  logoLabel: { fontSize: 11, fontWeight: '700', color: DS.colors.textTertiary, letterSpacing: 0.8, marginBottom: 10 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  logoPreviewWrap: {
+    width: 120, height: 40, borderRadius: DS.radius.xs,
+    borderWidth: 1, borderColor: DS.colors.border,
+    backgroundColor: DS.colors.bg,
+    overflow: 'hidden',
+  },
+  logoPreview: { width: '100%', height: '100%' },
+  logoEmpty: {
+    width: 120, height: 40, borderRadius: DS.radius.xs,
+    borderWidth: 1, borderStyle: 'dashed', borderColor: DS.colors.border,
+    backgroundColor: DS.colors.bg,
+    alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6,
+  },
+  logoEmptyText: { fontSize: 12, color: DS.colors.textTertiary },
+  logoBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logoUploadBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: DS.radius.sm, borderWidth: 1.5, borderColor: DS.colors.accent,
+    minWidth: 110, justifyContent: 'center',
+  },
+  logoUploadText: { fontSize: 13, fontWeight: '600', color: DS.colors.accent },
+  logoRemoveBtn: {
+    width: 34, height: 34, borderRadius: DS.radius.sm,
+    borderWidth: 1, borderColor: DS.colors.dangerSoft,
+    backgroundColor: DS.colors.dangerSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
   sectionLabel: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
   sectionLabelText: {
     fontSize: 11, fontWeight: '700', color: DS.colors.textTertiary, letterSpacing: 0.8,

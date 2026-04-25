@@ -89,24 +89,79 @@ export const getMonthlyRevenue = (archive) => {
   return months;
 };
 
-// Data migration: converteer totals.incTotal naar direct total getal
+// Normalize documents from backend or local storage to app format
 const migrateArchiveData = (rawData) => {
   if (!Array.isArray(rawData)) return [];
   return rawData.map(doc => {
     const migrated = { ...doc };
-    
-    // Map totals
-    if (doc.totals && typeof doc.totals.incTotal === 'number' && !doc.total) {
-      migrated.total = doc.totals.incTotal;
+
+    // Normalize type (legacy backend used 'Invoice'/'Quote')
+    if (doc.type === 'Invoice') migrated.type = 'FACTUUR';
+    else if (doc.type === 'Quote') migrated.type = 'OFFERTE';
+
+    // Build klant from backend join fields
+    if (!doc.klant && doc.customer_name) {
+      migrated.klant = {
+        id: doc.customer_id,
+        bedrijfsnaam: doc.customer_name || '',
+        email: doc.customer_email || '',
+        telefoon: doc.customer_phone || '',
+        btwNummer: doc.customer_vat || '',
+      };
     }
-    
-    // Map Peppol fields from snake_case to camelCase
+
+    // Ensure customer.name exists for display
+    if (!migrated.customer?.name) {
+      migrated.customer = { name: migrated.klant?.bedrijfsnaam || '' };
+    }
+
+    // Resolve total from various storage formats
+    if (typeof migrated.total !== 'number' || Number.isNaN(migrated.total)) {
+      let resolved = 0;
+      // notes column (backend stores totals JSON here)
+      if (doc.notes) {
+        try { const n = JSON.parse(doc.notes); resolved = n.incTotal ?? n.total ?? 0; if (!migrated.totals) migrated.totals = n; } catch {}
+      }
+      // legacy totals_json
+      if (!resolved && doc.totals_json) {
+        try { const t = JSON.parse(doc.totals_json); resolved = t.incTotal ?? t.total ?? 0; } catch {}
+      }
+      // totals object (local save format)
+      if (!resolved && typeof doc.totals?.incTotal === 'number') resolved = doc.totals.incTotal;
+      // compute from lines
+      if (!resolved && Array.isArray(doc.lines) && doc.lines.length > 0) {
+        resolved = doc.lines.reduce((s, l) => {
+          const qty = l.quantity ?? l.aantal ?? 1;
+          const price = l.unit_price ?? l.eenheidsprijs ?? 0;
+          const vatRate = l.vat_rate ?? l.btwPerc ?? 21;
+          return s + qty * price * (1 + vatRate / 100);
+        }, 0);
+      }
+      migrated.total = Math.round(resolved * 100) / 100;
+    }
+
+    // Normalize lines from backend format (document_lines columns)
+    if (Array.isArray(doc.lines) && doc.lines.length > 0) {
+      migrated.lines = doc.lines.map(l => ({
+        id: String(l.id || Date.now()),
+        omschrijving: l.description ?? l.omschrijving ?? '',
+        aantal: l.quantity ?? l.aantal ?? 1,
+        eenheid: l.unit ?? l.eenheid ?? 'st',
+        eenheidsprijs: l.unit_price ?? l.eenheidsprijs ?? 0,
+        btwPerc: l.vat_rate ?? l.btwPerc ?? 21,
+        ex: l.ex ?? ((l.quantity ?? l.aantal ?? 1) * (l.unit_price ?? l.eenheidsprijs ?? 0)),
+        btwA: l.btwA ?? 0,
+        inc: l.inc ?? 0,
+      }));
+    }
+
+    // Peppol fields
     if (doc.peppol_status) {
       migrated.peppolStatus = doc.peppol_status;
       migrated.peppolId = doc.peppol_id;
       migrated.peppolSentAt = doc.peppol_sent_at;
     }
-    
+
     return migrated;
   });
 };
@@ -292,38 +347,22 @@ export function OffertoProvider({ children }) {
     }
   }
   
-  /**
-   * Sync a document to backend
-   */
   async function syncDocumentToBackend(doc) {
-    if (!USE_BACKEND_API || !SYNC_ON_CHANGE) return;
-    
+    if (!USE_BACKEND_API || !SYNC_ON_CHANGE || !user) return;
     try {
-      // Map local document format to backend format
-      const customer = doc.klant || {};
-      const backendDoc = {
-        type: doc.type === 'FACTUUR' ? 'Invoice' : 'Quote',
-        customer_id: customer.id || null, // Will need customer creation first
-        status: doc.status === 'Betaald' ? 'Paid' : doc.status === 'Getekend/Goedgekeurd' ? 'Signed' : 'Sent',
+      const k = doc.klant || {};
+      await api.createDocument({
+        type: doc.type,
+        customer_id: k.id || null,
+        klant: k.id ? null : (k.bedrijfsnaam ? k : null),
+        status: doc.status || 'Concept',
         number: doc.number,
         date: doc.date,
-        totals_json: { total: doc.total || doc.totals?.incTotal || 0 },
-        lines: (doc.lines || []).map(line => ({
-          description: line.omschrijving,
-          qty: line.aantal,
-          unit: line.eenheid,
-          unit_price: line.eenheidsprijs,
-          vat_perc: line.btwPerc,
-          ex: line.ex,
-          vat: line.btwA,
-          inc: line.inc,
-        })),
-      };
-      
-      // Create document in backend
-      await api.createDocument(backendDoc);
+        lines: doc.lines || [],
+        totals: doc.totals || null,
+      });
     } catch (e) {
-      console.error('Sync to backend failed:', e);
+      console.warn('Sync to backend failed:', e.message);
     }
   }
 
@@ -337,12 +376,14 @@ export function OffertoProvider({ children }) {
         number: doc.number,
         date: doc.date,
         total: doc.totals?.incTotal ?? 0,
+        totals: doc.totals,
         signRequested: !!doc.signRequested,
         status: 'Concept',
         klant: klant,
-        lines: doc.totals?.lines || [],
+        lines: doc.lines || [],
+        customer: { name: klant.bedrijfsnaam || klant.contactpersoon || '' },
         shareUrl: undefined,
-        lastReminderAt: null
+        lastReminderAt: null,
       };
       
       const next = [item, ...(archive||[])];

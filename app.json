@@ -26,7 +26,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-mail-composer"
+      "expo-mail-composer",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Offerto heeft toegang nodig tot je fotobibliotheek om je bedrijfslogo te uploaden."
+        }
+      ]
     ]
   }
 }
