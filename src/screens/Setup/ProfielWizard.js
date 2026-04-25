@@ -214,7 +214,7 @@ export default function ProfielWizard({navigation}){
             style={{
               borderWidth: 1.5,
               borderColor: theme.color.border,
-              borderRadius: theme.border.md,
+              borderRadius: theme.radius.md,
               padding: theme.space.md,
               minHeight: 90,
               textAlignVertical: 'top',
