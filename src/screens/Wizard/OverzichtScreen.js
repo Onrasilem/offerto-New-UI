@@ -6,7 +6,7 @@ import { PeppolSendModal } from '../../components/PeppolSendModal';
 import SignaturePad from '../../components/SignaturePad';
 import { useOfferto } from '../../context/OffertoContext';
 import { currency, addDaysISO } from '../../lib/utils';
-import { buildPdf, sharePdf } from '../../lib/pdf';
+import { buildPdf, sharePdf, previewPdf } from '../../lib/pdf';
 import { DS } from '../../theme';
 
 export default function OverzichtScreen({ navigation }) {
@@ -20,6 +20,7 @@ export default function OverzichtScreen({ navigation }) {
   const { lines, exTotal, btwTotal, incTotal } = totals;
   const [peppolVisible, setPeppolVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     if (!docNummer) regenerateNumberFor(docType);
@@ -51,11 +52,30 @@ export default function OverzichtScreen({ navigation }) {
     } finally { setSaving(false); }
   };
 
+  const pdfParams = () => ({ company, klant, lines, exTotal, btwTotal, incTotal, docType, nummer: docNummer || 'DOC-0000', docDatum, signatureData });
+
+  const handlePreview = async () => {
+    setPdfLoading(true);
+    try {
+      await previewPdf(pdfParams());
+    } catch (e) {
+      Alert.alert('Fout', e.message || 'Kon PDF niet openen.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const handlePdf = async () => {
-    const target = await buildPdf({ company, klant, lines, exTotal, btwTotal, incTotal, docType, nummer: docNummer || 'DOC-0000', docDatum, signatureData });
-    if (!target) return Alert.alert('PDF', 'Kon geen PDF genereren.');
-    await sharePdf(target);
-    try { await ensureSaved(); } catch {}
+    setPdfLoading(true);
+    try {
+      const target = await buildPdf(pdfParams());
+      await sharePdf(target);
+      try { await ensureSaved(); } catch {}
+    } catch (e) {
+      Alert.alert('Fout', e.message || 'Kon PDF niet genereren.');
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleSign = async () => {
@@ -153,9 +173,14 @@ export default function OverzichtScreen({ navigation }) {
       {/* Action footer */}
       <View style={s.footer}>
         <View style={s.footerRow}>
-          <TouchableOpacity style={s.secondaryBtn} onPress={handlePdf}>
-            <Ionicons name="document-outline" size={18} color={DS.colors.accent} />
-            <Text style={s.secondaryBtnText}>PDF</Text>
+          <TouchableOpacity style={s.secondaryBtn} onPress={handlePreview} disabled={pdfLoading}>
+            <Ionicons name="eye-outline" size={18} color={DS.colors.accent} />
+            <Text style={s.secondaryBtnText}>Bekijk</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.secondaryBtn} onPress={handlePdf} disabled={pdfLoading}>
+            <Ionicons name="share-outline" size={18} color={DS.colors.accent} />
+            <Text style={s.secondaryBtnText}>Deel</Text>
           </TouchableOpacity>
 
           {docType === 'FACTUUR' && (

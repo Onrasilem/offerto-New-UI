@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Share,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useOfferto } from '../../context/OffertoContext';
 import { DS } from '../../theme';
-import { Badge, DSCard, Divider, PrimaryBtn, SecondaryBtn } from '../../components/DesignSystem';
+import { Badge } from '../../components/DesignSystem';
 import { currency } from '../../lib/utils';
+import { previewPdf, buildPdf, sharePdf } from '../../lib/pdf';
 
 export default function DocumentDetailScreen({ route, navigation }) {
   const { doc } = route.params || {};
-  const { updateStatus } = useOfferto();
+  const { updateStatus, company } = useOfferto();
   const [localStatus, setLocalStatus] = useState(doc?.status || 'Concept');
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   if (!doc) {
     return (
@@ -51,10 +54,53 @@ export default function DocumentDetailScreen({ route, navigation }) {
     navigation.navigate('Wizard', { fromDoc: doc, type: 'FACTUUR' });
   }
 
-  async function shareDoc() {
+  function getPdfParams() {
+    const klant = doc.klant || { bedrijfsnaam: clientName };
+    const docLines = lines.map(l => ({
+      omschrijving: l.omschrijving || l.description || '',
+      aantal: l.aantal ?? l.qty ?? 1,
+      eenheidsprijs: l.eenheidsprijs ?? l.unit_price ?? 0,
+      btwPerc: l.btwPerc ?? l.vat_perc ?? 21,
+      ex: l.ex ?? 0,
+      btwA: l.btwA ?? l.vat ?? 0,
+      inc: l.inc ?? 0,
+    }));
+    const totals = doc.totals || {};
+    return {
+      company: company || {},
+      klant,
+      lines: docLines,
+      exTotal: totals.exTotal ?? 0,
+      btwTotal: totals.btwTotal ?? 0,
+      incTotal: totals.incTotal ?? getTotal(),
+      docType: doc.type,
+      nummer: doc.number || String(doc.id),
+      docDatum: doc.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      signatureData: doc.signature_data || null,
+    };
+  }
+
+  async function handlePreview() {
+    setPdfLoading(true);
     try {
-      await Share.share({ message: `${isFactuur ? 'Factuur' : 'Offerte'} ${doc.number || doc.id} — ${clientName} — ${currency(getTotal())}` });
-    } catch (e) {}
+      await previewPdf(getPdfParams());
+    } catch (e) {
+      Alert.alert('Fout', e.message || 'Kon PDF niet openen.');
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  async function handleSharePdf() {
+    setPdfLoading(true);
+    try {
+      const target = await buildPdf(getPdfParams());
+      await sharePdf(target);
+    } catch (e) {
+      Alert.alert('Fout', e.message || 'Kon PDF niet genereren.');
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   const timeline = isFactuur ? [
@@ -172,11 +218,23 @@ export default function DocumentDetailScreen({ route, navigation }) {
 
         {/* Actions */}
         <View style={s.actionsSection}>
+          {/* PDF knoppen — altijd zichtbaar */}
+          <View style={s.pdfRow}>
+            <TouchableOpacity style={s.pdfBtn} onPress={handlePreview} disabled={pdfLoading}>
+              <Ionicons name="eye-outline" size={18} color={DS.colors.accent} />
+              <Text style={s.pdfBtnText}>Bekijk PDF</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.pdfBtn} onPress={handleSharePdf} disabled={pdfLoading}>
+              <Ionicons name="share-outline" size={18} color={DS.colors.accent} />
+              <Text style={s.pdfBtnText}>Deel PDF</Text>
+            </TouchableOpacity>
+          </View>
+
           {isFactuur ? (
             <>
               {!isPaid && (
                 <TouchableOpacity style={s.markPaidBtn} onPress={markPaid}>
-                  <Text style={s.markPaidIcon}>✓</Text>
+                  <Ionicons name="checkmark-circle-outline" size={22} color={DS.colors.success} />
                   <View>
                     <Text style={s.markPaidTitle}>Markeer als betaald</Text>
                     <Text style={s.markPaidSub}>Betaling handmatig registreren</Text>
@@ -185,30 +243,16 @@ export default function DocumentDetailScreen({ route, navigation }) {
               )}
               {isPaid && (
                 <View style={s.paidConfirm}>
-                  <Text style={s.paidIcon}>✓</Text>
+                  <Ionicons name="checkmark-circle" size={22} color={DS.colors.success} />
                   <Text style={s.paidText}>Betaald</Text>
                 </View>
               )}
             </>
           ) : (
-            <View style={s.btnRow}>
-              <TouchableOpacity style={s.secondaryBtn} onPress={shareDoc}>
-                <Text style={s.secondaryBtnText}>PDF / Delen</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.primaryBtn} onPress={convertToInvoice}>
-                <Text style={s.primaryBtnText}>Omzetten naar factuur</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={s.primaryBtn} onPress={convertToInvoice}>
+              <Text style={s.primaryBtnText}>Omzetten naar factuur</Text>
+            </TouchableOpacity>
           )}
-
-          {/* Share options */}
-          <View style={s.shareRow}>
-            {['PDF','E-mail','Link','QR'].map(a => (
-              <TouchableOpacity key={a} style={s.shareOption} onPress={shareDoc}>
-                <Text style={s.shareOptionText}>{a}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         <View style={{ height: 32 }} />
@@ -288,7 +332,14 @@ const s = StyleSheet.create({
   },
   timelineLabelPending: { color: DS.colors.textTertiary, fontWeight: '400' },
   actionsSection: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
-  btnRow: { flexDirection: 'row', gap: 10 },
+  pdfRow: { flexDirection: 'row', gap: 10 },
+  pdfBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 12, borderRadius: DS.radius.sm,
+    borderWidth: 1.5, borderColor: DS.colors.accent,
+    backgroundColor: DS.colors.accentSoft,
+  },
+  pdfBtnText: { fontSize: 14, fontWeight: '600', color: DS.colors.accent },
   primaryBtn: {
     flex: 1, backgroundColor: DS.colors.accent, borderRadius: DS.radius.sm,
     paddingVertical: 12, alignItems: 'center',
@@ -315,11 +366,4 @@ const s = StyleSheet.create({
   },
   paidIcon: { fontSize: 22, color: DS.colors.success },
   paidText: { fontSize: 16, fontWeight: '700', color: DS.colors.success },
-  shareRow: { flexDirection: 'row', gap: 8 },
-  shareOption: {
-    flex: 1, paddingVertical: 10, alignItems: 'center',
-    backgroundColor: DS.colors.bg, borderRadius: DS.radius.sm,
-    borderWidth: 1, borderColor: DS.colors.border,
-  },
-  shareOptionText: { fontSize: 13, fontWeight: '600', color: DS.colors.textSecondary },
 });
