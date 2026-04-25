@@ -121,8 +121,8 @@ export default function DocumentDetailScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
           <Text style={s.backText}>‹ Terug</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={shareDoc} style={s.shareBtn}>
-          <Text style={s.shareIcon}>↑</Text>
+        <TouchableOpacity onPress={handlePreview} style={s.shareBtn} disabled={pdfLoading}>
+          <Ionicons name="eye-outline" size={20} color={DS.colors.accent} />
         </TouchableOpacity>
       </View>
 
