@@ -67,8 +67,10 @@ export default function RootNavigator() {
             <Stack.Screen name="BetalingDetail" component={BetalingDetailScreen} />
             <Stack.Screen name="EmailTemplates" component={EmailTemplatesScreen}
               options={{ headerShown: true, title: 'E-mail templates', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
-            <Stack.Screen name="Producten" component={ProductenScreen} />
-            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+            <Stack.Screen name="Producten" component={ProductenScreen}
+              options={{ headerShown: true, title: 'Producten & diensten', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } }} />
+            <Stack.Screen name="ProductDetail" component={ProductDetailScreen}
+              options={({ route }) => ({ headerShown: true, title: route.params?.mode === 'edit' ? 'Product bewerken' : 'Nieuw product', headerBackTitleVisible: false, headerTintColor: DS.colors.accent, headerTitleStyle: { fontWeight: '700', color: DS.colors.textPrimary }, headerShadowVisible: false, contentStyle: { backgroundColor: DS.colors.bg } })} />
             <Stack.Screen name="Betalingen" component={BetalingenScreen} />
             <Stack.Screen name="ProfielWizard" component={ProfielWizard} />
             <Stack.Screen name="KlantForm" component={KlantFormScreen}

@@ -14,6 +14,7 @@ const SECTIONS = [
       { icon: 'document-text-outline', label: 'Nummering',         nav: 'Nummering' },
       { icon: 'calendar-outline',    label: 'Betalingstermijn',   nav: 'Betalingstermijn' },
       { icon: 'calculator-outline',  label: 'BTW-tarieven',       nav: 'BTW' },
+      { icon: 'cube-outline',        label: 'Producten & diensten', nav: 'Producten' },
     ],
   },
   {

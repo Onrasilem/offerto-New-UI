@@ -1,92 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import api from '../../lib/api';
-import { theme } from '../../components/UI';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { api } from '../../lib/api';
+import { DS } from '../../theme';
+import { currency } from '../../lib/utils';
+
+const UNIT_LABELS = { stuk: 'stuk', uur: 'uur', m2: 'm²', m3: 'm³', m: 'meter', dag: 'dag', forfait: 'forfait' };
 
 export default function ProductenScreen({ navigation }) {
-  const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [showActive, setShowActive] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    loadProducts();
-  }, [search, selectedCategory, showActive]);
-
-  const loadData = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [productsData, categoriesData, statsData] = await Promise.all([
+      const [pd, cd] = await Promise.all([
         api.getProducts({ active: true }),
         api.getProductCategories(),
-        api.getProductStats(),
       ]);
-      
-      setProducts(productsData.products || []);
-      setCategories(categoriesData.categories || []);
-      setStats(statsData);
-    } catch (error) {
-      console.error('Failed to load products:', error);
-      Alert.alert('Fout', 'Kon producten niet laden');
+      setProducts(pd.products || []);
+      setCategories(cd.categories || []);
+    } catch (e) {
+      Alert.alert('Fout', 'Kon producten niet laden.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadProducts = async () => {
-    try {
-      const params = {};
-      if (search) params.search = search;
-      if (selectedCategory) params.category_id = selectedCategory;
-      if (showActive !== null) params.active = showActive;
+  useEffect(() => { load(); }, [load]);
 
-      const data = await api.getProducts(params);
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Failed to load products:', error);
-    }
-  };
+  // Re-load when coming back from ProductDetail
+  useEffect(() => {
+    const unsub = navigation.addListener?.('focus', load);
+    return unsub?.remove ?? unsub;
+  }, [navigation, load]);
 
-  const handleAddProduct = () => {
-    navigation.navigate('ProductDetail', { mode: 'create' });
-  };
-
-  const handleEditProduct = (product) => {
-    navigation.navigate('ProductDetail', { product, mode: 'edit' });
-  };
-
-  const handleDeleteProduct = (product) => {
+  const handleDelete = (product) => {
     Alert.alert(
       'Product verwijderen',
-      `Weet je zeker dat je "${product.name}" wilt verwijderen?`,
+      `"${product.name}" verwijderen?`,
       [
         { text: 'Annuleren', style: 'cancel' },
         {
-          text: 'Verwijder',
-          style: 'destructive',
+          text: 'Verwijderen', style: 'destructive',
           onPress: async () => {
             try {
               await api.deleteProduct(product.id);
-              loadProducts();
-              Alert.alert('Gelukt', 'Product verwijderd');
-            } catch (error) {
-              Alert.alert('Fout', 'Kon product niet verwijderen');
+              setProducts(prev => prev.filter(p => p.id !== product.id));
+            } catch {
+              Alert.alert('Fout', 'Kon product niet verwijderen.');
             }
           },
         },
@@ -94,392 +60,185 @@ export default function ProductenScreen({ navigation }) {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
+  const filtered = products.filter(p => {
+    const q = search.toLowerCase();
+    const matchSearch = !search || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q);
+    const matchCat = !selectedCategory || p.category_id === selectedCategory;
+    return matchSearch && matchCat;
+  });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>📦 Producten</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddProduct}>
-          <Text style={styles.addButtonText}>+ Nieuw</Text>
+      <View style={s.header}>
+        <Text style={s.title}>Producten & diensten</Text>
+        <TouchableOpacity style={s.addBtn} onPress={() => navigation.navigate('ProductDetail', { mode: 'create' })}>
+          <Ionicons name="add" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Stats Cards */}
-        {stats && (
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: '#eff6ff' }]}>
-              <Text style={styles.statLabel}>Totaal</Text>
-              <Text style={styles.statValue}>{stats.total_products}</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#f0fdf4' }]}>
-              <Text style={styles.statLabel}>Actief</Text>
-              <Text style={styles.statValue}>{stats.active_products}</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#fef2f2' }]}>
-              <Text style={styles.statLabel}>Geen voorraad</Text>
-              <Text style={styles.statValue}>{stats.out_of_stock}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Search */}
-        <View style={styles.section}>
+      {/* Search */}
+      <View style={s.searchWrap}>
+        <View style={s.searchBar}>
+          <Ionicons name="search-outline" size={16} color={DS.colors.textTertiary} />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Zoek producten..."
             value={search}
             onChangeText={setSearch}
+            placeholder="Zoek product of dienst..."
+            placeholderTextColor={DS.colors.textTertiary}
+            style={s.searchInput}
           />
-        </View>
-
-        {/* Category Filter */}
-        <View style={styles.section}>
-          <Text style={styles.filterLabel}>Categorie:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity
-              style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
-              onPress={() => setSelectedCategory(null)}
-            >
-              <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
-                Alle
-              </Text>
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={16} color={DS.colors.textTertiary} />
             </TouchableOpacity>
-            {categories.map(cat => (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryChip,
-                  selectedCategory === cat.id && styles.categoryChipActive,
-                  { borderColor: cat.color },
-                ]}
-                onPress={() => setSelectedCategory(cat.id)}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    selectedCategory === cat.id && styles.categoryChipTextActive,
-                  ]}
-                >
-                  {cat.name} ({cat.product_count})
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Products List */}
-        <View style={styles.section}>
-          {products.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📦</Text>
-              <Text style={styles.emptyText}>Geen producten gevonden</Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={handleAddProduct}>
-                <Text style={styles.emptyButtonText}>+ Eerste product toevoegen</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            products.map(product => (
-              <TouchableOpacity
-                key={product.id}
-                style={styles.productCard}
-                onPress={() => handleEditProduct(product)}
-              >
-                <View style={styles.productHeader}>
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    {product.category_name && (
-                      <View
-                        style={[
-                          styles.categoryBadge,
-                          { backgroundColor: product.category_color + '20' },
-                        ]}
-                      >
-                        <Text style={[styles.categoryBadgeText, { color: product.category_color }]}>
-                          {product.category_name}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.productPricing}>
-                    <Text style={styles.productPrice}>€ {parseFloat(product.price).toFixed(2)}</Text>
-                    <Text style={styles.productUnit}>per {product.unit}</Text>
-                  </View>
-                </View>
-
-                {product.description && (
-                  <Text style={styles.productDescription} numberOfLines={2}>
-                    {product.description}
-                  </Text>
-                )}
-
-                <View style={styles.productFooter}>
-                  {product.sku && (
-                    <Text style={styles.productSku}>SKU: {product.sku}</Text>
-                  )}
-                  {product.track_stock === 1 && (
-                    <Text
-                      style={[
-                        styles.productStock,
-                        product.stock_quantity <= 0 && styles.productStockLow,
-                        product.stock_quantity > 0 && product.stock_quantity <= 5 && styles.productStockWarning,
-                      ]}
-                    >
-                      Voorraad: {product.stock_quantity}
-                    </Text>
-                  )}
-                  {product.active === 0 && (
-                    <Text style={styles.productInactive}>Inactief</Text>
-                  )}
-                </View>
-
-                <View style={styles.productActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleEditProduct(product)}
-                  >
-                    <Text style={styles.actionButtonText}>✏️ Bewerk</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDeleteProduct(product)}
-                  >
-                    <Text style={[styles.actionButtonText, styles.deleteButtonText]}>🗑️ Verwijder</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))
           )}
         </View>
-      </ScrollView>
-    </View>
+      </View>
+
+      {/* Category filter */}
+      {categories.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catBar} contentContainerStyle={s.catContent}>
+          <TouchableOpacity
+            style={[s.catChip, !selectedCategory && s.catChipActive]}
+            onPress={() => setSelectedCategory(null)}
+          >
+            <Text style={[s.catChipText, !selectedCategory && s.catChipTextActive]}>Alle</Text>
+          </TouchableOpacity>
+          {categories.map(c => (
+            <TouchableOpacity
+              key={c.id}
+              style={[s.catChip, selectedCategory === c.id && s.catChipActive]}
+              onPress={() => setSelectedCategory(selectedCategory === c.id ? null : c.id)}
+            >
+              <Text style={[s.catChipText, selectedCategory === c.id && s.catChipTextActive]}>{c.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* Count */}
+      <View style={s.countRow}>
+        <Text style={s.countText}>{filtered.length} product{filtered.length !== 1 ? 'en' : ''}</Text>
+      </View>
+
+      {loading ? (
+        <View style={s.center}>
+          <ActivityIndicator color={DS.colors.accent} />
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {filtered.length === 0 ? (
+            <View style={s.empty}>
+              <Ionicons name="cube-outline" size={40} color={DS.colors.textTertiary} />
+              <Text style={s.emptyTitle}>{search ? 'Geen resultaten' : 'Nog geen producten'}</Text>
+              {!search && (
+                <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('ProductDetail', { mode: 'create' })}>
+                  <Text style={s.emptyBtnText}>Eerste product toevoegen</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : filtered.map(p => (
+            <TouchableOpacity
+              key={p.id}
+              style={s.row}
+              onPress={() => navigation.navigate('ProductDetail', { product: p, mode: 'edit' })}
+              activeOpacity={0.7}
+            >
+              <View style={s.rowIcon}>
+                <Ionicons name="cube-outline" size={20} color={DS.colors.accent} />
+              </View>
+              <View style={s.rowBody}>
+                <Text style={s.rowName} numberOfLines={1}>{p.name}</Text>
+                <View style={s.rowMeta}>
+                  {p.category_name && (
+                    <View style={[s.catBadge, { backgroundColor: (p.category_color || DS.colors.accent) + '22' }]}>
+                      <Text style={[s.catBadgeText, { color: p.category_color || DS.colors.accent }]}>{p.category_name}</Text>
+                    </View>
+                  )}
+                  <Text style={s.rowUnit}>{UNIT_LABELS[p.unit] || p.unit || 'stuk'}</Text>
+                  {p.track_stock === 1 && (
+                    <Text style={[s.stockBadge, p.stock_quantity <= 0 && s.stockLow]}>
+                      {p.stock_quantity} op voorraad
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <View style={s.rowRight}>
+                <Text style={s.rowPrice}>{currency(p.price)}</Text>
+                <Text style={s.rowVat}>BTW {p.tax_rate || 21}%</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleDelete(p)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="trash-outline" size={18} color={DS.colors.danger} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#fff' },
   header: {
-    backgroundColor: theme.primary,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+  title: { fontSize: 22, fontWeight: '800', color: DS.colors.textPrimary, letterSpacing: -0.5 },
+  addBtn: {
+    width: 36, height: 36, borderRadius: DS.radius.sm,
+    backgroundColor: DS.colors.accent, alignItems: 'center', justifyContent: 'center',
   },
-  addButton: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  searchWrap: { paddingHorizontal: 16, paddingBottom: 10 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: DS.colors.bg, borderRadius: DS.radius.sm,
+    borderWidth: 1, borderColor: DS.colors.border,
+    paddingHorizontal: 14, paddingVertical: 11,
   },
-  addButtonText: {
-    color: theme.primary,
-    fontWeight: '600',
+  searchInput: { flex: 1, fontSize: 15, color: DS.colors.textPrimary },
+  catBar: { maxHeight: 46, borderBottomWidth: 1, borderBottomColor: DS.colors.borderLight },
+  catContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
+  catChip: {
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: DS.radius.full, borderWidth: 1.5, borderColor: DS.colors.border,
+    backgroundColor: DS.colors.bg,
   },
-  content: {
-    flex: 1,
+  catChipActive: { backgroundColor: DS.colors.accent, borderColor: DS.colors.accent },
+  catChipText: { fontSize: 13, fontWeight: '600', color: DS.colors.textSecondary },
+  catChipTextActive: { color: '#fff' },
+  countRow: { paddingHorizontal: 16, paddingVertical: 8 },
+  countText: { fontSize: 12, fontWeight: '700', color: DS.colors.textTertiary, letterSpacing: 0.8 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  empty: { paddingTop: 64, alignItems: 'center', gap: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: DS.colors.textSecondary },
+  emptyBtn: {
+    marginTop: 8, paddingHorizontal: 20, paddingVertical: 11,
+    backgroundColor: DS.colors.accent, borderRadius: DS.radius.sm,
   },
-  statsRow: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
+  emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: DS.colors.borderLight,
   },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+  rowIcon: {
+    width: 36, height: 36, borderRadius: DS.radius.xs,
+    backgroundColor: DS.colors.accentSoft,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1e293b',
-  },
-  section: {
-    padding: 16,
-  },
-  searchInput: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    marginRight: 8,
-    backgroundColor: 'white',
-  },
-  categoryChipActive: {
-    backgroundColor: theme.primary,
-    borderColor: theme.primary,
-  },
-  categoryChipText: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '600',
-  },
-  categoryChipTextActive: {
-    color: 'white',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#64748b',
-    marginBottom: 24,
-  },
-  emptyButton: {
-    backgroundColor: theme.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  emptyButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  productCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  productInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  productName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginTop: 4,
-  },
-  categoryBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  productPricing: {
-    alignItems: 'flex-end',
-  },
-  productPrice: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.primary,
-  },
-  productUnit: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  productDescription: {
-    fontSize: 14,
-    color: '#64748b',
-    marginBottom: 12,
-  },
-  productFooter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 12,
-  },
-  productSku: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  productStock: {
-    fontSize: 12,
-    color: '#10b981',
-    fontWeight: '600',
-  },
-  productStockLow: {
-    color: '#dc2626',
-  },
-  productStockWarning: {
-    color: '#f59e0b',
-  },
-  productInactive: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontStyle: 'italic',
-  },
-  productActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  deleteButton: {
-    borderColor: '#fee2e2',
-    backgroundColor: '#fef2f2',
-  },
-  deleteButtonText: {
-    color: '#dc2626',
-  },
+  rowBody: { flex: 1, minWidth: 0 },
+  rowName: { fontSize: 15, fontWeight: '600', color: DS.colors.textPrimary },
+  rowMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' },
+  catBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  catBadgeText: { fontSize: 11, fontWeight: '600' },
+  rowUnit: { fontSize: 12, color: DS.colors.textTertiary },
+  stockBadge: { fontSize: 11, fontWeight: '600', color: DS.colors.success },
+  stockLow: { color: DS.colors.danger },
+  rowRight: { alignItems: 'flex-end', flexShrink: 0, marginRight: 8 },
+  rowPrice: { fontSize: 15, fontWeight: '700', color: DS.colors.accent },
+  rowVat: { fontSize: 11, color: DS.colors.textTertiary, marginTop: 1 },
 });
