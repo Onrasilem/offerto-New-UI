@@ -58,6 +58,8 @@ function buildHtml({ company, klant, lines, exTotal, btwTotal, incTotal, docType
     return d.toLocaleDateString('nl-NL');
   })() : null;
 
+  const missingCompany = !company.bedrijfsnaam;
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -116,6 +118,9 @@ function buildHtml({ company, klant, lines, exTotal, btwTotal, incTotal, docType
   </style>
 </head>
 <body>
+  ${missingCompany ? `<div style="background:#FFF3CD;border-left:4px solid #F59E0B;padding:10px 14px;margin-bottom:16px;border-radius:4px;font-size:10pt;">
+    <strong>Tip:</strong> Vul je bedrijfsgegevens in via Instellingen &rarr; Bewerk voor een professionele PDF.
+  </div>` : ''}
   <div class="header">
     ${company.logoUrl ? `<div class="logo"><img src="${company.logoUrl}" alt="Logo" /></div>` : ''}
     <h1>${escapeHtml(docType)} ${escapeHtml(nummer)}</h1>
@@ -246,20 +251,17 @@ function buildHtml({ company, klant, lines, exTotal, btwTotal, incTotal, docType
 
 /** Preview PDF in native viewer (iOS/Android) */
 export async function previewPdf(params) {
-  const { company, klant } = params;
-  if (!company?.bedrijfsnaam) throw new Error('Vul eerst je bedrijfsgegevens in (Instellingen → Bewerk).');
-  if (!klant?.bedrijfsnaam && !klant?.contactpersoon) throw new Error('Klantgegevens ontbreken.');
-  const html = buildHtml(params);
+  const safeParams = { ...params, company: params.company || {}, klant: params.klant || {} };
+  const html = buildHtml(safeParams);
   await Print.printAsync({ html, width: 595, height: 842 });
 }
 
 /** Generate PDF file and return its URI */
 export async function buildPdf(params) {
-  const { company, klant, docType, nummer } = params;
-  if (!company?.bedrijfsnaam) throw new Error('Vul eerst je bedrijfsgegevens in (Instellingen → Bewerk).');
-  if (!klant?.bedrijfsnaam && !klant?.contactpersoon) throw new Error('Klantgegevens ontbreken.');
+  const { docType, nummer } = params;
+  const safeParams = { ...params, company: params.company || {}, klant: params.klant || {} };
 
-  const html = buildHtml(params);
+  const html = buildHtml(safeParams);
   const { uri } = await Print.printToFileAsync({ html, base64: false, width: 595, height: 842 });
   const target = FileSystem.documentDirectory + `${docType}-${nummer}-${Date.now()}.pdf`;
   await FileSystem.copyAsync({ from: uri, to: target });
